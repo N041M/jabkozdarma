@@ -6,6 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { AccessBadge, Button, RipenessBadge } from '@/components/ui';
 import { ripenessColors, useTheme } from '@/constants/theme';
+import { t as t2 } from '@/lib/i18n';
 import {
   flagLabels,
   latestReport,
@@ -50,7 +51,7 @@ export default function TreeDetail() {
   if (!tree) {
     return (
       <View style={[styles.center, { backgroundColor: t.bg }]}>
-        <Text style={{ color: t.muted }}>This tree is no longer on the map.</Text>
+        <Text style={{ color: t.muted }}>{t2('treeGone')}</Text>
       </View>
     );
   }
@@ -72,7 +73,7 @@ export default function TreeDetail() {
       );
       setRoute({
         treeId: tree.id,
-        treeLabel: tree.variety ?? 'Apple tree',
+        treeLabel: tree.variety ?? t2('appleTree'),
         ...result,
       });
       setRouting('idle');
@@ -86,7 +87,7 @@ export default function TreeDetail() {
     <>
       <Stack.Screen
         options={{
-          title: tree.variety ?? 'Apple tree',
+          title: tree.variety ?? t2('appleTree'),
           headerRight: () => (
             <Pressable onPress={() => toggleFavorite(tree.id)} hitSlop={8} disabled={!profile}>
               <Ionicons
@@ -107,7 +108,9 @@ export default function TreeDetail() {
           <AccessBadge access={tree.access} />
           {tree.status === 'unverified' && (
             <View style={[styles.unverified, { borderColor: t.line }]}>
-              <Text style={{ color: t.muted, fontSize: 12, fontWeight: '600' }}>Unverified</Text>
+              <Text style={{ color: t.muted, fontSize: 12, fontWeight: '600' }}>
+                {t2('unverified')}
+              </Text>
             </View>
           )}
         </View>
@@ -116,7 +119,7 @@ export default function TreeDetail() {
 
         {season && (
           <Text style={{ color: t.muted, fontSize: 14 }}>
-            Usual season: <Text style={{ color: t.ink, fontWeight: '600' }}>{season}</Text>
+            {t2('usualSeason')} <Text style={{ color: t.ink, fontWeight: '600' }}>{season}</Text>
           </Text>
         )}
 
@@ -125,19 +128,19 @@ export default function TreeDetail() {
         )}
 
         <Text style={{ color: t.muted, fontSize: 13 }}>
-          Added by {author?.username ?? 'unknown'} · {timeAgo(tree.createdAt)}
+          {t2('addedBy', { name: author?.username ?? '?', when: timeAgo(tree.createdAt) })}
         </Text>
 
         <View style={styles.actionRow}>
           <Button
-            label={routing === 'busy' ? 'Finding a route…' : 'Walk there'}
+            label={routing === 'busy' ? t2('findingRoute') : t2('walkThere')}
             onPress={walkThere}
             disabled={routing === 'busy'}
             style={{ flex: 1 }}
           />
           {profile?.id === tree.createdBy && (
             <Button
-              label="Edit"
+              label={t2('edit')}
               kind="secondary"
               onPress={() => router.push({ pathname: '/add-tree', params: { editId: tree.id } })}
               style={{ flex: 1 }}
@@ -145,13 +148,11 @@ export default function TreeDetail() {
           )}
         </View>
         {routing === 'error' && (
-          <Text style={{ color: t.red, fontSize: 13 }}>
-            Couldn’t get a walking route — check that location access is allowed and try again.
-          </Text>
+          <Text style={{ color: t.red, fontSize: 13 }}>{t2('routeError')}</Text>
         )}
 
         <View style={[styles.section, { borderTopColor: t.line }]}>
-          <Text style={[styles.sectionTitle, { color: t.ink }]}>How is it right now?</Text>
+          <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('howIsIt')}</Text>
           {profile ? (
             <View style={styles.chipRow}>
               {RIPENESS_STATES.map((state) => (
@@ -170,15 +171,13 @@ export default function TreeDetail() {
               ))}
             </View>
           ) : (
-            <Text style={{ color: t.muted, fontSize: 14 }}>
-              Sign in on the Profile tab to report ripeness.
-            </Text>
+            <Text style={{ color: t.muted, fontSize: 14 }}>{t2('signInToReport')}</Text>
           )}
         </View>
 
         {treeReports.length > 0 && (
           <View style={[styles.section, { borderTopColor: t.line }]}>
-            <Text style={[styles.sectionTitle, { color: t.ink }]}>Reports</Text>
+            <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('reports')}</Text>
             {treeReports.map((r) => {
               const reporter = profiles.find((p) => p.id === r.userId);
               return (
@@ -200,7 +199,7 @@ export default function TreeDetail() {
         <View style={[styles.section, { borderTopColor: t.line }]}>
           {flagged ? (
             <Text style={{ color: t.muted, fontSize: 14 }}>
-              Thanks — flagged as “{flagLabels[flagged]}”. A moderator will take a look.
+              {t2('flagThanks', { reason: flagLabels[flagged] })}
             </Text>
           ) : showFlags ? (
             <View style={styles.chipRow}>
@@ -225,7 +224,7 @@ export default function TreeDetail() {
           ) : (
             <Pressable onPress={() => setShowFlags(true)} disabled={!profile} hitSlop={8}>
               <Text style={{ color: profile ? t.red : t.muted, fontSize: 14, fontWeight: '600' }}>
-                {profile ? 'Report a problem with this pin' : 'Sign in to report a problem'}
+                {profile ? t2('reportProblem') : t2('signInToFlag')}
               </Text>
             </Pressable>
           )}

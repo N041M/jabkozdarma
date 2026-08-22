@@ -54,7 +54,11 @@ export default function TreeMap({
       zoom: 11.5,
       attributionControl: { compact: true },
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    // Zoom buttons only for mouse users — touch devices pinch, and the
+    // buttons would collide with the route banner on small screens.
+    if (window.matchMedia('(pointer: fine)').matches) {
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    }
     map.on('error', (e) => console.error('[map error]', e.error));
     if (process.env.NODE_ENV !== 'production') (window as unknown as { __map?: unknown }).__map = map;
     map.on('click', (e: maplibregl.MapMouseEvent) => {
@@ -80,17 +84,21 @@ export default function TreeMap({
     if (!map) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = trees.map((tree: Tree) => {
+      // Invisible 40px hit area around an 18px dot — finger-sized on touch.
       const el = document.createElement('div');
-      el.style.cssText = [
+      el.style.cssText =
+        'width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer';
+      const dot = document.createElement('div');
+      dot.style.cssText = [
         'width:18px',
         'height:18px',
         'border-radius:50%',
         'border:2.5px solid #fff',
         'box-shadow:0 1px 3px rgba(0,0,0,.35)',
-        'cursor:pointer',
         `background:${pinColor(tree, reports)}`,
         tree.status === 'unverified' ? 'opacity:.55' : '',
       ].join(';');
+      el.appendChild(dot);
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
         if (!placingRef.current) onPressTreeRef.current(tree);

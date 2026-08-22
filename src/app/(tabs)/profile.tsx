@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
+import { t as t2 } from '@/lib/i18n';
 import { timeAgo } from '@/lib/labels';
 import { useStore } from '@/lib/store';
 import { isBackendConfigured } from '@/lib/supabase';
@@ -42,24 +43,24 @@ export default function ProfileScreen() {
       {!profile ? (
         <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.line }]}>
           <Ionicons name="person-circle-outline" size={44} color={t.green} />
-          <Text style={[styles.title, { color: t.ink }]}>Join in</Text>
-          <Text style={{ color: t.muted, fontSize: 14, lineHeight: 20 }}>
-            Browsing the map is free for everyone. Create a profile to add trees, report ripeness,
-            and save favorites.
-          </Text>
+          <Text style={[styles.title, { color: t.ink }]}>{t2('joinTitle')}</Text>
+          <Text style={{ color: t.muted, fontSize: 14, lineHeight: 20 }}>{t2('joinCopy')}</Text>
           <TextInput
             value={username}
             onChangeText={setUsername}
-            placeholder="Pick a username"
+            placeholder={t2('usernamePlaceholder')}
             placeholderTextColor={t.muted}
             autoCapitalize="none"
             style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
             onSubmitEditing={() => signIn(username)}
           />
-          <Button label="Create profile" onPress={() => signIn(username)} disabled={!username.trim()} />
+          <Button
+            label={t2('createProfile')}
+            onPress={() => signIn(username)}
+            disabled={!username.trim()}
+          />
           <Text style={{ color: t.muted, fontSize: 12, lineHeight: 17 }}>
-            Local profile for now — Apple, Google and email sign-in arrive when the Supabase
-            backend is connected.
+            {t2('localProfileNote')}
           </Text>
         </View>
       ) : (
@@ -72,16 +73,18 @@ export default function ProfileScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.title, { color: t.ink }]}>{profile.username}</Text>
-              <Text style={{ color: t.muted, fontSize: 13 }}>Joined {timeAgo(profile.createdAt)}</Text>
+              <Text style={{ color: t.muted, fontSize: 13 }}>
+                {t2('joined', { when: timeAgo(profile.createdAt) })}
+              </Text>
             </View>
           </View>
 
           <View style={styles.statsRow}>
             {(
               [
-                [myTrees.length, 'trees added'],
-                [myReports.length, 'reports'],
-                [favoriteTrees.length, 'favorites'],
+                [myTrees.length, t2('statTrees')],
+                [myReports.length, t2('statReports')],
+                [favoriteTrees.length, t2('statFavorites')],
               ] as const
             ).map(([n, label]) => (
               <View
@@ -95,11 +98,12 @@ export default function ProfileScreen() {
 
           {myTrees.length > 0 && (
             <View style={styles.listSection}>
-              <Text style={[styles.sectionTitle, { color: t.ink }]}>My trees</Text>
+              <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('myTrees')}</Text>
               {myTrees.map((tree) => (
                 <Link key={tree.id} href={`/tree/${tree.id}`} asChild>
                   <Text style={[styles.link, { color: t.green }]}>
-                    {tree.variety ?? 'Apple tree'} · added {timeAgo(tree.createdAt)}
+                    {tree.variety ?? t2('appleTree')} ·{' '}
+                    {t2('addedWhen', { when: timeAgo(tree.createdAt) })}
                   </Text>
                 </Link>
               ))}
@@ -108,11 +112,11 @@ export default function ProfileScreen() {
 
           {favoriteTrees.length > 0 && (
             <View style={styles.listSection}>
-              <Text style={[styles.sectionTitle, { color: t.ink }]}>Favorites</Text>
+              <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('favorites')}</Text>
               {favoriteTrees.map((tree) => (
                 <Link key={tree.id} href={`/tree/${tree.id}`} asChild>
                   <Text style={[styles.link, { color: t.green }]}>
-                    {tree.variety ?? 'Apple tree'}
+                    {tree.variety ?? t2('appleTree')}
                     {tree.description ? ` — ${tree.description.slice(0, 40)}…` : ''}
                   </Text>
                 </Link>
@@ -120,7 +124,7 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          <Button label="Sign out" kind="danger" onPress={signOut} style={{ marginTop: 12 }} />
+          <Button label={t2('signOut')} kind="danger" onPress={signOut} style={{ marginTop: 12 }} />
         </>
       )}
 
@@ -132,9 +136,7 @@ export default function ProfileScreen() {
           ]}
         />
         <Text style={{ color: t.muted, fontSize: 12, flex: 1 }}>
-          {isBackendConfigured
-            ? 'Connected to Supabase'
-            : 'Local mode — your data stays on this device until the backend is connected.'}
+          {isBackendConfigured ? t2('backendConnected') : t2('localMode')}
         </Text>
       </View>
     </ScrollView>

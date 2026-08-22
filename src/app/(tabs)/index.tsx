@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import TreeMap from '@/components/tree-map';
 import { ripenessColors, useTheme } from '@/constants/theme';
+import { t as t2 } from '@/lib/i18n';
 import { distanceMeters } from '@/lib/labels';
 import { formatRoute } from '@/lib/routing';
 import { useStore } from '@/lib/store';
@@ -73,7 +74,9 @@ export default function MapScreen() {
             <Text style={{ color: t.ink, fontWeight: '700' }}>
               {formatRoute(activeRoute.distanceM, activeRoute.durationS)}
             </Text>
-            <Text style={{ color: t.muted, fontSize: 12 }}>to {activeRoute.treeLabel}</Text>
+            <Text style={{ color: t.muted, fontSize: 12 }}>
+              {t2('routeTo', { label: activeRoute.treeLabel })}
+            </Text>
           </View>
           <Pressable onPress={clearRoute} hitSlop={8}>
             <Ionicons name="close" size={22} color={t.muted} />
@@ -83,11 +86,9 @@ export default function MapScreen() {
 
       {placing && (
         <View style={[styles.banner, { top: insets.top + 12, backgroundColor: t.surface }]}>
-          <Text style={{ color: t.ink, fontWeight: '600', flex: 1 }}>
-            Tap the map where the tree stands
-          </Text>
+          <Text style={{ color: t.ink, fontWeight: '600', flex: 1 }}>{t2('placingBanner')}</Text>
           <Pressable onPress={() => setPlacing(false)} hitSlop={8}>
-            <Text style={{ color: t.red, fontWeight: '700' }}>Cancel</Text>
+            <Text style={{ color: t.red, fontWeight: '700' }}>{t2('cancel')}</Text>
           </Pressable>
         </View>
       )}
@@ -96,9 +97,9 @@ export default function MapScreen() {
         <View style={[styles.legend, { top: insets.top + 12, backgroundColor: t.surface }]}>
           {(
             [
-              ['ripe', 'Ripe now'],
-              ['unripe', 'Unripe'],
-              ['none', 'No report'],
+              ['ripe', t2('legendRipe')],
+              ['unripe', t2('legendUnripe')],
+              ['none', t2('legendNone')],
             ] as const
           ).map(([key, label]) => (
             <View key={key} style={styles.legendRow}>

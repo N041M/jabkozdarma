@@ -3,19 +3,27 @@
 A community map of freely pickable apple trees. Anyone can browse; contributors pin
 trees, add photos, and report what's ripe right now.
 
-One Expo (React Native + TypeScript) codebase targeting **iOS, Android, and web**.
+**Web-first:** v1 ships as a phone-optimized, installable web app (live at
+https://n041m.github.io/jabkozdarma/, deployed from `main` by GitHub Actions).
+The codebase is Expo (React Native + TypeScript), so native iOS/Android builds
+are a v2 flip-of-a-switch, not a rewrite.
 
 ## Run it
 
 ```bash
 npm install
-npm run web        # web app at http://localhost:8081
-npm start          # then press i / a, or scan the QR with Expo Go
+npm start          # web dev server at http://localhost:8081
+npm run start:native   # v2: Expo Go / native development
 ```
 
 - **Web** uses MapLibre GL with OpenStreetMap tiles.
-- **iOS / Android** use `react-native-maps` (Apple/Google Maps), which works in Expo Go
-  out of the box. Swapping native to MapLibre is planned once we move to dev builds.
+- **iOS / Android (deferred to v2)** use `react-native-maps` via the platform-split
+  `tree-map` component; the native path stays compiling but isn't the focus.
+- **Languages:** Czech + English, auto-detected from the device; override with
+  `?lang=cs` / `?lang=en` in the URL.
+- **Location & privacy:** position comes from the browser's Geolocation API with the
+  user's permission, read on-device. The static host never sees it; coordinates leave
+  the device only as the two endpoints sent to the OSRM router when requesting a route.
 
 ## Current state (Phase 1 MVP, local mode)
 
@@ -29,6 +37,9 @@ npm start          # then press i / a, or scan the QR with Expo Go
 - Local profiles (username only) gate contributions; browsing needs no account
 - Everything persists on-device (AsyncStorage). Seed pins around Prague so the map
   is never empty.
+- Retention roadmap ("game-ify the harvest"): Duolingo-style season streaks, XP and
+  weekly quests, plus Pokémon GO-style variety collection (Jablkodex) and GPS
+  check-in picks — see the product plan for mechanics and guardrails.
 
 ## Connecting the backend (Phase 2)
 

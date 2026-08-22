@@ -1,0 +1,18 @@
+{
+  "name": "JabkoZdarma",
+  "short_name": "JabkoZdarma",
+  "description": "Community map of freely pickable apple trees.",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F8F4",
+  "theme_color": "#38754A",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

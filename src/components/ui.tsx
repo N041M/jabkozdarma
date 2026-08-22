@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { ripenessColors, useTheme } from '@/constants/theme';
+import { t as t2 } from '@/lib/i18n';
 import { accessLabels, ripenessLabels, timeAgo } from '@/lib/labels';
 import type { AccessType, TreeReport } from '@/lib/types';
 
@@ -19,7 +20,7 @@ export function AccessBadge({ access }: { access: AccessType }) {
 export function RipenessBadge({ report }: { report: TreeReport | null }) {
   const t = useTheme();
   if (!report) {
-    return <Text style={{ color: t.muted, fontSize: 13 }}>No reports yet</Text>;
+    return <Text style={{ color: t.muted, fontSize: 13 }}>{t2('noReports')}</Text>;
   }
   return (
     <View style={styles.row}>

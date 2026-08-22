@@ -1,3 +1,5 @@
+import { formatKm, t } from './i18n';
+
 export interface LatLng {
   lat: number;
   lng: number;
@@ -31,9 +33,11 @@ export async function fetchWalkingRoute(from: LatLng, to: LatLng): Promise<Route
 }
 
 export function formatRoute(distanceM: number, durationS: number): string {
-  const km = distanceM / 1000;
-  const dist = km >= 10 ? `${Math.round(km)} km` : `${km.toFixed(1)} km`;
+  const dist = formatKm(distanceM / 1000);
   const mins = Math.max(1, Math.round(durationS / 60));
-  const time = mins >= 90 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`;
-  return `${dist} · ${time} walk`;
+  const time =
+    mins >= 90
+      ? t('hoursMinutes', { h: Math.floor(mins / 60), m: mins % 60 })
+      : t('minutes', { m: mins });
+  return t('routeFormat', { dist, time });
 }

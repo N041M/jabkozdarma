@@ -15,6 +15,7 @@ import {
 
 import { Button } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
+import { monthShort, t as t2 } from '@/lib/i18n';
 import { accessLabels } from '@/lib/labels';
 import { useStore } from '@/lib/store';
 import type { AccessType } from '@/lib/types';
@@ -22,11 +23,12 @@ import type { AccessType } from '@/lib/types';
 const ACCESS_TYPES: AccessType[] = ['public', 'roadside', 'ask_owner'];
 
 const SEASONS: { label: string; start: number | null; end: number | null }[] = [
-  { label: 'Not sure', start: null, end: null },
-  { label: 'Jul – Aug', start: 7, end: 8 },
-  { label: 'Aug – Sep', start: 8, end: 9 },
-  { label: 'Sep – Oct', start: 9, end: 10 },
-  { label: 'Oct – Nov', start: 10, end: 11 },
+  { label: t2('notSure'), start: null, end: null },
+  ...[7, 8, 9, 10].map((m) => ({
+    label: `${monthShort(m)} – ${monthShort(m + 1)}`,
+    start: m,
+    end: m + 1,
+  })),
 ];
 
 export default function AddTree() {
@@ -101,26 +103,25 @@ export default function AddTree() {
         <View style={[styles.warning, { backgroundColor: t.amberSoft }]}>
           <Ionicons name="alert-circle" size={18} color={t.amber} />
           <Text style={{ color: t.amber, fontSize: 13, flex: 1 }}>
-            There {nearbyCount === 1 ? 'is already a pin' : `are already ${nearbyCount} pins`} within
-            25 m of this spot. Check it isn’t the same tree before saving.
+            {t2('duplicateWarning', { count: nearbyCount })}
           </Text>
         </View>
       )}
 
-      <Text style={[styles.label, { color: t.muted }]}>VARIETY (IF KNOWN)</Text>
+      <Text style={[styles.label, { color: t.muted }]}>{t2('varietyLabel')}</Text>
       <TextInput
         value={variety}
         onChangeText={setVariety}
-        placeholder="e.g. James Grieve"
+        placeholder={t2('varietyPlaceholder')}
         placeholderTextColor={t.muted}
         style={[styles.input, { backgroundColor: t.surface, color: t.ink, borderColor: t.line }]}
       />
 
-      <Text style={[styles.label, { color: t.muted }]}>NOTES</Text>
+      <Text style={[styles.label, { color: t.muted }]}>{t2('notesLabel')}</Text>
       <TextInput
         value={description}
         onChangeText={setDescription}
-        placeholder="Where exactly is it? What are the apples like?"
+        placeholder={t2('notesPlaceholder')}
         placeholderTextColor={t.muted}
         multiline
         numberOfLines={3}
@@ -131,7 +132,7 @@ export default function AddTree() {
         ]}
       />
 
-      <Text style={[styles.label, { color: t.muted }]}>WHO CAN PICK HERE?</Text>
+      <Text style={[styles.label, { color: t.muted }]}>{t2('accessLabel')}</Text>
       <View style={styles.chipRow}>
         {ACCESS_TYPES.map((a) => (
           <Pressable
@@ -151,13 +152,10 @@ export default function AddTree() {
         ))}
       </View>
       {access === 'ask_owner' && (
-        <Text style={{ color: t.muted, fontSize: 13 }}>
-          Pins on private land show an “ask the owner” badge. Only add them with the owner’s
-          blessing.
-        </Text>
+        <Text style={{ color: t.muted, fontSize: 13 }}>{t2('ownerHint')}</Text>
       )}
 
-      <Text style={[styles.label, { color: t.muted }]}>WHEN IS IT RIPE?</Text>
+      <Text style={[styles.label, { color: t.muted }]}>{t2('seasonLabel')}</Text>
       <View style={styles.chipRow}>
         {SEASONS.map((s, i) => (
           <Pressable
@@ -178,7 +176,7 @@ export default function AddTree() {
         ))}
       </View>
 
-      <Text style={[styles.label, { color: t.muted }]}>PHOTO</Text>
+      <Text style={[styles.label, { color: t.muted }]}>{t2('photoLabel')}</Text>
       {photoUri ? (
         <View>
           <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
@@ -191,11 +189,15 @@ export default function AddTree() {
           onPress={pickPhoto}
           style={[styles.photoPicker, { borderColor: t.line, backgroundColor: t.surface }]}>
           <Ionicons name="camera-outline" size={26} color={t.muted} />
-          <Text style={{ color: t.muted, fontSize: 13 }}>Add a photo of the tree</Text>
+          <Text style={{ color: t.muted, fontSize: 13 }}>{t2('addPhoto')}</Text>
         </Pressable>
       )}
 
-      <Button label={editing ? 'Save changes' : 'Add tree to the map'} onPress={save} style={{ marginTop: 8 }} />
+      <Button
+        label={editing ? t2('saveChanges') : t2('addToMap')}
+        onPress={save}
+        style={{ marginTop: 8 }}
+      />
     </ScrollView>
   );
 }

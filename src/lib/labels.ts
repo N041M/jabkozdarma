@@ -1,25 +1,26 @@
 import type { AccessType, FlagReason, RipenessState, Tree, TreeReport } from './types';
 import { ripenessColors } from '@/constants/theme';
+import { monthShort, t } from './i18n';
 
 export const accessLabels: Record<AccessType, string> = {
-  public: 'Public land',
-  roadside: 'Roadside',
-  ask_owner: 'Ask the owner',
+  public: t('access_public'),
+  roadside: t('access_roadside'),
+  ask_owner: t('access_ask_owner'),
 };
 
 export const ripenessLabels: Record<RipenessState, string> = {
-  flowering: 'Flowering',
-  unripe: 'Unripe',
-  ripe: 'Ripe now',
-  past: 'Past ripe',
-  bare: 'Bare',
+  flowering: t('state_flowering'),
+  unripe: t('state_unripe'),
+  ripe: t('state_ripe'),
+  past: t('state_past'),
+  bare: t('state_bare'),
 };
 
 export const flagLabels: Record<FlagReason, string> = {
-  gone: 'Tree is gone',
-  duplicate: 'Duplicate pin',
-  private: 'On private land',
-  wrong_info: 'Wrong info',
+  gone: t('flag_gone'),
+  duplicate: t('flag_duplicate'),
+  private: t('flag_private'),
+  wrong_info: t('flag_wrong_info'),
 };
 
 export function latestReport(treeId: string, reports: TreeReport[]): TreeReport | null {
@@ -36,20 +37,18 @@ export function pinColor(tree: Tree, reports: TreeReport[]): string {
   return ripenessColors[latest?.state ?? 'none'];
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 export function seasonLabel(tree: Tree): string | null {
   if (!tree.seasonStart || !tree.seasonEnd) return null;
-  return `${MONTHS[tree.seasonStart - 1]} – ${MONTHS[tree.seasonEnd - 1]}`;
+  return `${monthShort(tree.seasonStart)} – ${monthShort(tree.seasonEnd)}`;
 }
 
 export function timeAgo(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days} days ago`;
+  if (days <= 0) return t('today');
+  if (days === 1) return t('yesterday');
+  if (days < 30) return t('daysAgo', { n: days });
   const months = Math.floor(days / 30);
-  return months === 1 ? 'a month ago' : `${months} months ago`;
+  return months === 1 ? t('monthAgo') : t('monthsAgo', { n: months });
 }
 
 /** Rough meters between two coordinates, good enough for duplicate warnings. */

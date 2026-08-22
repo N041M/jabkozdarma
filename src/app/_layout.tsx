@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 
 import { palette } from '@/constants/theme';
+import { t as t2 } from '@/lib/i18n';
 
 export default function RootLayout() {
   const scheme = useColorScheme();
@@ -26,10 +27,10 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="tree/[id]" options={{ title: 'Apple tree' }} />
+        <Stack.Screen name="tree/[id]" options={{ title: t2('appleTree') }} />
         <Stack.Screen
           name="add-tree"
-          options={{ title: 'Add a tree', presentation: 'modal' }}
+          options={{ title: t2('addTreeTitle'), presentation: 'modal' }}
         />
       </Stack>
     </ThemeProvider>
