@@ -21,8 +21,10 @@ create table profiles (
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  -- Tolerant: on username collision the app's ensureProfile() picks a free one.
   insert into profiles (id, username)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'username', 'picker-' || left(new.id::text, 8)));
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'username', 'picker-' || left(new.id::text, 8)))
+  on conflict do nothing;
   return new;
 end $$;
 
@@ -170,10 +172,15 @@ create policy "users manage own favorites" on favorites
 
 create policy "users update own profile" on profiles
   for update using (auth.uid() = id);
+create policy "users insert own profile" on profiles
+  for insert with check (auth.uid() = id);
 
 -- ---------- storage ----------
--- Create a public bucket named `tree-photos` in the dashboard, then:
--- create policy "anyone reads tree photos" on storage.objects
---   for select using (bucket_id = 'tree-photos');
--- create policy "users upload tree photos" on storage.objects
---   for insert with check (bucket_id = 'tree-photos' and auth.uid() is not null);
+insert into storage.buckets (id, name, public)
+values ('tree-photos', 'tree-photos', true)
+on conflict (id) do nothing;
+
+create policy "anyone reads tree photos" on storage.objects
+  for select using (bucket_id = 'tree-photos');
+create policy "users upload tree photos" on storage.objects
+  for insert with check (bucket_id = 'tree-photos' and auth.uid() is not null);

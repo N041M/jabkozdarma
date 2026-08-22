@@ -1,12 +1,19 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { palette } from '@/constants/theme';
 import { t as t2 } from '@/lib/i18n';
+import { useStore } from '@/lib/store';
 
 export default function RootLayout() {
   const scheme = useColorScheme();
+  const initBackend = useStore((s) => s.initBackend);
+
+  useEffect(() => {
+    initBackend();
+  }, [initBackend]);
   const t = scheme === 'dark' ? palette.dark : palette.light;
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
 

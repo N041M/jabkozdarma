@@ -41,16 +41,23 @@ npm run start:native   # v2: Expo Go / native development
   weekly quests, plus Pokémon GO-style variety collection (Jablkodex) and GPS
   check-in picks — see the product plan for mechanics and guardrails.
 
-## Connecting the backend (Phase 2)
+## Connecting the backend
 
-1. Create a Supabase project, run [supabase/schema.sql](supabase/schema.sql) in the SQL editor
-   (PostGIS, tables, RLS policies, and the `trees_in_bbox` viewport RPC).
-2. Create a public storage bucket `tree-photos` (policies at the bottom of the schema).
-3. `cp .env.example .env` and fill in the project URL + anon key.
+The integration is fully implemented — email-code (OTP) sign-in, shared
+trees/reports/favorites/flags, and photo uploads to Supabase Storage. The app runs
+in local mode until it finds credentials, then switches automatically.
 
-`src/lib/supabase.ts` picks up the env vars; the app shows its backend status on the
-Profile tab. Wiring auth + sync to replace the local store is the next milestone —
-see the product plan for the full roadmap.
+1. Create a free Supabase project at supabase.com.
+2. Paste the whole of [supabase/schema.sql](supabase/schema.sql) into the SQL editor and run it
+   (PostGIS, tables, RLS, the `trees_in_bbox` RPC, and the `tree-photos` bucket).
+3. Local dev: `cp .env.example .env`, fill in Project URL + anon key (Settings → API).
+4. Production (GitHub Pages): set the same two values as repository variables —
+   `gh variable set EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` —
+   and re-run the deploy workflow.
+
+Notes: the anon key is a public client key (safety comes from RLS, which is enabled
+on every table). Supabase's built-in mailer is fine for testing OTP codes but is
+rate-limited — plug in custom SMTP before real launch.
 
 ## Layout
 

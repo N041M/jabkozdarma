@@ -28,6 +28,8 @@ jobs:
         run: npx expo export --platform web
         env:
           EXPO_BASE_PATH: /${{ github.event.repository.name }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
       - name: Prepare Pages artifact
         run: |
           cp dist/index.html dist/404.html

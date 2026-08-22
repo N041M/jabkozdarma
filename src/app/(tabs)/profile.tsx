@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
@@ -20,8 +20,41 @@ export default function ProfileScreen() {
   const favorites = useStore((s) => s.favorites);
   const signIn = useStore((s) => s.signIn);
   const signOut = useStore((s) => s.signOut);
+  const sendCode = useStore((s) => s.sendCode);
+  const verifyCode = useStore((s) => s.verifyCode);
 
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [authStep, setAuthStep] = useState<'form' | 'code'>('form');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const submitEmail = async () => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await sendCode(email, username);
+      setAuthStep('code');
+    } catch {
+      setAuthError(t2('sendError'));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const submitCode = async () => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await verifyCode(email, code);
+      // onAuthStateChange fills in the profile
+    } catch {
+      setAuthError(t2('authError'));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   const myTrees = useMemo(
     () => (profile ? trees.filter((tr) => tr.createdBy === profile.id) : []),
@@ -45,23 +78,82 @@ export default function ProfileScreen() {
           <Ionicons name="person-circle-outline" size={44} color={t.green} />
           <Text style={[styles.title, { color: t.ink }]}>{t2('joinTitle')}</Text>
           <Text style={{ color: t.muted, fontSize: 14, lineHeight: 20 }}>{t2('joinCopy')}</Text>
-          <TextInput
-            value={username}
-            onChangeText={setUsername}
-            placeholder={t2('usernamePlaceholder')}
-            placeholderTextColor={t.muted}
-            autoCapitalize="none"
-            style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
-            onSubmitEditing={() => signIn(username)}
-          />
-          <Button
-            label={t2('createProfile')}
-            onPress={() => signIn(username)}
-            disabled={!username.trim()}
-          />
-          <Text style={{ color: t.muted, fontSize: 12, lineHeight: 17 }}>
-            {t2('localProfileNote')}
-          </Text>
+
+          {!isBackendConfigured ? (
+            <>
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder={t2('usernamePlaceholder')}
+                placeholderTextColor={t.muted}
+                autoCapitalize="none"
+                style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
+                onSubmitEditing={() => signIn(username)}
+              />
+              <Button
+                label={t2('createProfile')}
+                onPress={() => signIn(username)}
+                disabled={!username.trim()}
+              />
+              <Text style={{ color: t.muted, fontSize: 12, lineHeight: 17 }}>
+                {t2('localProfileNote')}
+              </Text>
+            </>
+          ) : authStep === 'form' ? (
+            <>
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder={t2('usernamePlaceholder')}
+                placeholderTextColor={t.muted}
+                autoCapitalize="none"
+                style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
+              />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder={t2('emailPlaceholder')}
+                placeholderTextColor={t.muted}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
+                onSubmitEditing={submitEmail}
+              />
+              <Button
+                label={authBusy ? t2('sendingCode') : t2('sendCode')}
+                onPress={submitEmail}
+                disabled={authBusy || !username.trim() || !email.includes('@')}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={{ color: t.muted, fontSize: 14 }}>
+                {t2('codeSentTo', { email: email.trim() })}
+              </Text>
+              <TextInput
+                value={code}
+                onChangeText={setCode}
+                placeholder={t2('codePlaceholder')}
+                placeholderTextColor={t.muted}
+                keyboardType="number-pad"
+                autoComplete="one-time-code"
+                style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
+                onSubmitEditing={submitCode}
+              />
+              <Button
+                label={authBusy ? t2('verifyingCode') : t2('verifyCode')}
+                onPress={submitCode}
+                disabled={authBusy || code.trim().length < 6}
+              />
+              <Pressable onPress={() => { setAuthStep('form'); setCode(''); setAuthError(null); }} hitSlop={8}>
+                <Text style={{ color: t.green, fontSize: 13, fontWeight: '600' }}>
+                  {t2('changeEmail')}
+                </Text>
+              </Pressable>
+            </>
+          )}
+          {authError && <Text style={{ color: t.red, fontSize: 13 }}>{authError}</Text>}
         </View>
       ) : (
         <>
