@@ -50,17 +50,10 @@ The integration is fully implemented — email-code (OTP) sign-in, shared
 trees/reports/favorites/flags, and photo uploads to Supabase Storage. The app runs
 in local mode until it finds credentials, then switches automatically.
 
-1. Create a free Supabase project at supabase.com.
-2. Paste the whole of [supabase/schema.sql](supabase/schema.sql) into the SQL editor and run it
-   (PostGIS, tables, RLS, the `trees_in_bbox` RPC, and the `tree-photos` bucket).
-3. Local dev: `cp .env.example .env`, fill in Project URL + anon key (Settings → API).
-4. Production (GitHub Pages): set the same two values as repository variables —
-   `gh variable set EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` —
-   and re-run the deploy workflow.
-
-Notes: the anon key is a public client key (safety comes from RLS, which is enabled
-on every table). Supabase's built-in mailer is fine for testing OTP codes but is
-rate-limited — plug in custom SMTP before real launch.
+**Follow [supabase/SETUP.md](supabase/SETUP.md)** — exact dashboard steps, including
+the one gotcha (the Magic Link email template must contain `{{ .Token }}` or the
+sign-in email carries no code), plus [supabase/seed.sql](supabase/seed.sql) to start
+the map with the Prague pins instead of empty.
 
 ## Layout
 
