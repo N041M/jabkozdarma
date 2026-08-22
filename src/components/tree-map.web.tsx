@@ -2,7 +2,9 @@ import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 
-import { pinColor } from '@/lib/labels';
+import { latestReport } from '@/lib/labels';
+import { GO_STYLE } from '@/lib/map-style';
+import { treeSpriteSvg } from '@/lib/tree-sprite';
 import type { Tree } from '@/lib/types';
 import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
 
@@ -10,19 +12,6 @@ import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
 // worker + shared chunk are served from public/ (kept in sync by postinstall).
 // EXPO_BASE_URL carries experiments.baseUrl for subpath deploys.
 maplibregl.setWorkerUrl(`${process.env.EXPO_BASE_URL ?? ''}/maplibre-gl-worker.mjs`);
-
-const OSM_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-};
 
 export default function TreeMap({
   trees,
@@ -49,9 +38,11 @@ export default function TreeMap({
     if (!containerRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: OSM_STYLE,
+      style: GO_STYLE,
       center: [PRAGUE.lng, PRAGUE.lat],
       zoom: 11.5,
+      pitch: 55,
+      maxPitch: 70,
       attributionControl: { compact: true },
     });
     // Zoom buttons only for mouse users — touch devices pinch, and the
@@ -84,26 +75,20 @@ export default function TreeMap({
     if (!map) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = trees.map((tree: Tree) => {
-      // Invisible 40px hit area around an 18px dot — finger-sized on touch.
+      // GO-style tree sprite standing on its coordinate; the whole 48px
+      // element is the (finger-sized) hit area.
       const el = document.createElement('div');
       el.style.cssText =
-        'width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer';
-      const dot = document.createElement('div');
-      dot.style.cssText = [
-        'width:18px',
-        'height:18px',
-        'border-radius:50%',
-        'border:2.5px solid #fff',
-        'box-shadow:0 1px 3px rgba(0,0,0,.35)',
-        `background:${pinColor(tree, reports)}`,
-        tree.status === 'unverified' ? 'opacity:.55' : '',
-      ].join(';');
-      el.appendChild(dot);
+        'width:48px;height:56px;display:flex;align-items:flex-end;justify-content:center;cursor:pointer';
+      el.innerHTML = treeSpriteSvg(
+        latestReport(tree.id, reports)?.state ?? 'none',
+        tree.status === 'unverified'
+      );
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
         if (!placingRef.current) onPressTreeRef.current(tree);
       });
-      return new maplibregl.Marker({ element: el })
+      return new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([tree.lng, tree.lat])
         .addTo(map);
     });
@@ -142,7 +127,7 @@ export default function TreeMap({
         }
         const bounds = new maplibregl.LngLatBounds();
         route.coords.forEach((c) => bounds.extend([c.lng, c.lat]));
-        map.fitBounds(bounds, { padding: 70, duration: 800 });
+        map.fitBounds(bounds, { padding: 70, duration: 800, pitch: 45 });
       } else {
         if (map.getLayer('route-line')) map.removeLayer('route-line');
         if (map.getSource('route')) map.removeSource('route');

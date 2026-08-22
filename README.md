@@ -16,7 +16,10 @@ npm start          # web dev server at http://localhost:8081
 npm run start:native   # v2: Expo Go / native development
 ```
 
-- **Web** uses MapLibre GL with OpenStreetMap tiles.
+- **Web** uses MapLibre GL with a custom Pokémon GO-style vector map ("Orchard GO"):
+  tilted 3D camera, extruded buildings, saturated-green world (OpenFreeMap vector
+  tiles, no API key), and sprite apple trees whose look reflects the latest
+  ripeness report.
 - **iOS / Android (deferred to v2)** use `react-native-maps` via the platform-split
   `tree-map` component; the native path stays compiling but isn't the focus.
 - **Languages:** Czech + English, auto-detected from the device; override with
