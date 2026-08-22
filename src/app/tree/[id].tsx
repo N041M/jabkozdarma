@@ -1,16 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Location from 'expo-location';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import {
-  Image,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AccessBadge, Button, RipenessBadge } from '@/components/ui';
 import { ripenessColors, useTheme } from '@/constants/theme';
@@ -21,6 +13,7 @@ import {
   seasonLabel,
   timeAgo,
 } from '@/lib/labels';
+import { fetchWalkingRoute } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import type { FlagReason, RipenessState } from '@/lib/types';
 
@@ -40,9 +33,11 @@ export default function TreeDetail() {
   const addReport = useStore((s) => s.addReport);
   const flagTree = useStore((s) => s.flagTree);
   const toggleFavorite = useStore((s) => s.toggleFavorite);
+  const setRoute = useStore((s) => s.setRoute);
 
   const [showFlags, setShowFlags] = useState(false);
   const [flagged, setFlagged] = useState<FlagReason | null>(null);
+  const [routing, setRouting] = useState<'idle' | 'busy' | 'error'>('idle');
 
   const treeReports = useMemo(
     () =>
@@ -65,13 +60,26 @@ export default function TreeDetail() {
   const latest = latestReport(tree.id, reports);
   const season = seasonLabel(tree);
 
-  const openDirections = () => {
-    const dest = `${tree.lat},${tree.lng}`;
-    const url = Platform.select({
-      ios: `http://maps.apple.com/?daddr=${dest}`,
-      default: `https://www.google.com/maps/dir/?api=1&destination=${dest}`,
-    });
-    Linking.openURL(url);
+  const walkThere = async () => {
+    setRouting('busy');
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') throw new Error('location permission denied');
+      const pos = await Location.getCurrentPositionAsync({});
+      const result = await fetchWalkingRoute(
+        { lat: pos.coords.latitude, lng: pos.coords.longitude },
+        { lat: tree.lat, lng: tree.lng }
+      );
+      setRoute({
+        treeId: tree.id,
+        treeLabel: tree.variety ?? 'Apple tree',
+        ...result,
+      });
+      setRouting('idle');
+      router.navigate('/'); // back to the map, which draws the route
+    } catch {
+      setRouting('error');
+    }
   };
 
   return (
@@ -121,7 +129,12 @@ export default function TreeDetail() {
         </Text>
 
         <View style={styles.actionRow}>
-          <Button label="Directions" onPress={openDirections} style={{ flex: 1 }} />
+          <Button
+            label={routing === 'busy' ? 'Finding a route…' : 'Walk there'}
+            onPress={walkThere}
+            disabled={routing === 'busy'}
+            style={{ flex: 1 }}
+          />
           {profile?.id === tree.createdBy && (
             <Button
               label="Edit"
@@ -131,6 +144,11 @@ export default function TreeDetail() {
             />
           )}
         </View>
+        {routing === 'error' && (
+          <Text style={{ color: t.red, fontSize: 13 }}>
+            Couldn’t get a walking route — check that location access is allowed and try again.
+          </Text>
+        )}
 
         <View style={[styles.section, { borderTopColor: t.line }]}>
           <Text style={[styles.sectionTitle, { color: t.ink }]}>How is it right now?</Text>

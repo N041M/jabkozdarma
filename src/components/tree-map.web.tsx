@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { pinColor } from '@/lib/labels';
 import type { Tree } from '@/lib/types';
-import { PRAGUE, type TreeMapProps } from './tree-map.types';
+import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
 
 // Metro can't resolve MapLibre's import.meta-relative module worker, so the
 // worker + shared chunk are served from public/ (kept in sync by postinstall).
@@ -31,6 +31,7 @@ export default function TreeMap({
   onPressTree,
   onPressMap,
   flyTo,
+  route,
 }: TreeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -103,6 +104,48 @@ export default function TreeMap({
   useEffect(() => {
     if (flyTo) mapRef.current?.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: 14, duration: 800 });
   }, [flyTo]);
+
+  // Draw / clear the walking route as a GeoJSON line layer.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const source = map.getSource('route') as maplibregl.GeoJSONSource | undefined;
+      if (route && route.coords.length > 1) {
+        const data: GeoJSON.Feature = {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: route.coords.map((c) => [c.lng, c.lat]),
+          },
+        };
+        if (source) {
+          source.setData(data);
+        } else {
+          map.addSource('route', { type: 'geojson', data });
+          map.addLayer({
+            id: 'route-line',
+            type: 'line',
+            source: 'route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': ROUTE_COLOR, 'line-width': 4, 'line-opacity': 0.85 },
+          });
+        }
+        const bounds = new maplibregl.LngLatBounds();
+        route.coords.forEach((c) => bounds.extend([c.lng, c.lat]));
+        map.fitBounds(bounds, { padding: 70, duration: 800 });
+      } else {
+        if (map.getLayer('route-line')) map.removeLayer('route-line');
+        if (map.getSource('route')) map.removeSource('route');
+      }
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+    return () => {
+      map.off('load', apply);
+    };
+  }, [route]);
 
   useEffect(() => {
     const canvas = mapRef.current?.getCanvas();

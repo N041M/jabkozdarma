@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TreeMap from '@/components/tree-map';
 import { ripenessColors, useTheme } from '@/constants/theme';
 import { distanceMeters } from '@/lib/labels';
+import { formatRoute } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 
 const DUPLICATE_RADIUS_M = 25;
@@ -19,6 +20,8 @@ export default function MapScreen() {
   const trees = useStore((s) => s.trees);
   const reports = useStore((s) => s.reports);
   const profile = useStore((s) => s.profile);
+  const activeRoute = useStore((s) => s.activeRoute);
+  const clearRoute = useStore((s) => s.clearRoute);
 
   const [placing, setPlacing] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; key: number } | null>(null);
@@ -60,7 +63,23 @@ export default function MapScreen() {
         onPressTree={(tree) => router.push(`/tree/${tree.id}`)}
         onPressMap={placeTree}
         flyTo={flyTo}
+        route={activeRoute}
       />
+
+      {activeRoute && !placing && (
+        <View style={[styles.banner, { top: insets.top + 12, backgroundColor: t.surface }]}>
+          <Ionicons name="walk" size={20} color={t.green} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: t.ink, fontWeight: '700' }}>
+              {formatRoute(activeRoute.distanceM, activeRoute.durationS)}
+            </Text>
+            <Text style={{ color: t.muted, fontSize: 12 }}>to {activeRoute.treeLabel}</Text>
+          </View>
+          <Pressable onPress={clearRoute} hitSlop={8}>
+            <Ionicons name="close" size={22} color={t.muted} />
+          </Pressable>
+        </View>
+      )}
 
       {placing && (
         <View style={[styles.banner, { top: insets.top + 12, backgroundColor: t.surface }]}>
@@ -73,7 +92,7 @@ export default function MapScreen() {
         </View>
       )}
 
-      {!placing && (
+      {!placing && !activeRoute && (
         <View style={[styles.legend, { top: insets.top + 12, backgroundColor: t.surface }]}>
           {(
             [

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import { pinColor } from '@/lib/labels';
-import { PRAGUE, type TreeMapProps } from './tree-map.types';
+import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
 
 export default function TreeMap({
   trees,
@@ -12,6 +12,7 @@ export default function TreeMap({
   onPressTree,
   onPressMap,
   flyTo,
+  route,
 }: TreeMapProps) {
   const mapRef = useRef<MapView>(null);
 
@@ -23,6 +24,15 @@ export default function TreeMap({
       );
     }
   }, [flyTo]);
+
+  useEffect(() => {
+    if (route && route.coords.length > 1) {
+      mapRef.current?.fitToCoordinates(
+        route.coords.map((c) => ({ latitude: c.lat, longitude: c.lng })),
+        { edgePadding: { top: 80, right: 60, bottom: 120, left: 60 }, animated: true }
+      );
+    }
+  }, [route]);
 
   return (
     <MapView
@@ -39,6 +49,13 @@ export default function TreeMap({
         const { latitude, longitude } = e.nativeEvent.coordinate;
         onPressMap(latitude, longitude);
       }}>
+      {route && route.coords.length > 1 && (
+        <Polyline
+          coordinates={route.coords.map((c) => ({ latitude: c.lat, longitude: c.lng }))}
+          strokeColor={ROUTE_COLOR}
+          strokeWidth={4}
+        />
+      )}
       {trees.map((tree) => (
         <Marker
           key={tree.id}

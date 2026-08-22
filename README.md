@@ -23,7 +23,9 @@ npm start          # then press i / a, or scan the QR with Expo Go
 - Add a tree: tap **+**, tap the map, fill in variety / notes / access / season / photo
   (duplicate warning if a pin already exists within 25 m)
 - Tree detail: photos, access badge, season, report timeline, one-tap ripeness report,
-  favorites, "report a problem" flags, directions handoff to the OS map app
+  favorites, "report a problem" flags
+- In-app walking routes: "Walk there" draws the route on the map (FOSSGIS OSRM,
+  foot profile) with a distance/duration banner — no handoff to external map apps
 - Local profiles (username only) gate contributions; browsing needs no account
 - Everything persists on-device (AsyncStorage). Seed pins around Prague so the map
   is never empty.

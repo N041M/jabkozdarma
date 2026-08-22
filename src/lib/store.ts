@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { seedProfile, seedReports, seedTrees } from './seed';
+import type { LatLng } from './routing';
 import type { FlagReason, Profile, RipenessState, Tree, TreeFlag, TreeReport } from './types';
 
 /**
@@ -27,6 +28,14 @@ export interface NewTreeInput {
   photoUri: string | null;
 }
 
+export interface ActiveRoute {
+  treeId: string;
+  treeLabel: string;
+  coords: LatLng[];
+  distanceM: number;
+  durationS: number;
+}
+
 interface AppState {
   profile: Profile | null;
   profiles: Profile[];
@@ -34,6 +43,7 @@ interface AppState {
   reports: TreeReport[];
   flags: TreeFlag[];
   favorites: string[]; // tree ids
+  activeRoute: ActiveRoute | null; // transient, not persisted
 
   signIn: (username: string) => void;
   signOut: () => void;
@@ -42,6 +52,8 @@ interface AppState {
   addReport: (treeId: string, state: RipenessState, note: string | null) => void;
   flagTree: (treeId: string, reason: FlagReason) => void;
   toggleFavorite: (treeId: string) => void;
+  setRoute: (route: ActiveRoute) => void;
+  clearRoute: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -53,6 +65,7 @@ export const useStore = create<AppState>()(
       reports: seedReports,
       flags: [],
       favorites: [],
+      activeRoute: null,
 
       signIn: (username) => {
         const trimmed = username.trim();
@@ -137,10 +150,21 @@ export const useStore = create<AppState>()(
             : [...s.favorites, treeId],
         }));
       },
+
+      setRoute: (route) => set({ activeRoute: route }),
+      clearRoute: () => set({ activeRoute: null }),
     }),
     {
       name: 'jabkozdarma-v1',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (s) => ({
+        profile: s.profile,
+        profiles: s.profiles,
+        trees: s.trees,
+        reports: s.reports,
+        flags: s.flags,
+        favorites: s.favorites,
+      }),
     }
   )
 );
