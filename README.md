@@ -1,56 +1,55 @@
-# Welcome to your Expo app 👋
+# JabkoZdarma 🍎
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A community map of freely pickable apple trees. Anyone can browse; contributors pin
+trees, add photos, and report what's ripe right now.
 
-## Get started
+One Expo (React Native + TypeScript) codebase targeting **iOS, Android, and web**.
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run it
 
 ```bash
-npm run reset-project
+npm install
+npm run web        # web app at http://localhost:8081
+npm start          # then press i / a, or scan the QR with Expo Go
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- **Web** uses MapLibre GL with OpenStreetMap tiles.
+- **iOS / Android** use `react-native-maps` (Apple/Google Maps), which works in Expo Go
+  out of the box. Swapping native to MapLibre is planned once we move to dev builds.
 
-### Other setup steps
+## Current state (Phase 1 MVP, local mode)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- Browse the map with clustered-free pins colored by the latest ripeness report
+- Add a tree: tap **+**, tap the map, fill in variety / notes / access / season / photo
+  (duplicate warning if a pin already exists within 25 m)
+- Tree detail: photos, access badge, season, report timeline, one-tap ripeness report,
+  favorites, "report a problem" flags, directions handoff to the OS map app
+- Local profiles (username only) gate contributions; browsing needs no account
+- Everything persists on-device (AsyncStorage). Seed pins around Prague so the map
+  is never empty.
 
-## Learn more
+## Connecting the backend (Phase 2)
 
-To learn more about developing your project with Expo, look at the following resources:
+1. Create a Supabase project, run [supabase/schema.sql](supabase/schema.sql) in the SQL editor
+   (PostGIS, tables, RLS policies, and the `trees_in_bbox` viewport RPC).
+2. Create a public storage bucket `tree-photos` (policies at the bottom of the schema).
+3. `cp .env.example .env` and fill in the project URL + anon key.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+`src/lib/supabase.ts` picks up the env vars; the app shows its backend status on the
+Profile tab. Wiring auth + sync to replace the local store is the next milestone —
+see the product plan for the full roadmap.
 
-## Join the community
+## Layout
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+src/
+  app/            expo-router screens
+    (tabs)/       map (index) + profile
+    tree/[id]     tree detail
+    add-tree      add/edit modal
+  components/     tree-map (native + web implementations), shared UI
+  lib/            types, store (zustand + AsyncStorage), seed data, supabase client
+  constants/      theme palette
+supabase/
+  schema.sql      full Postgres schema with RLS
+```

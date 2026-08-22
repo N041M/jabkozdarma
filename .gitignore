@@ -31,7 +31,17 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# local tooling
+.claude/
+CLAUDE.md
+.vscode/
+
+# copied from node_modules by postinstall
+public/maplibre-gl-worker.mjs
+public/maplibre-gl-shared.mjs
 
 # typescript
 *.tsbuildinfo
