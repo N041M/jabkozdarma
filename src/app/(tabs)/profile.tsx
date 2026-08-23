@@ -128,9 +128,10 @@ export default function ProfileScreen() {
             </>
           ) : (
             <>
-              <Text style={{ color: t.muted, fontSize: 14 }}>
+              <Text style={{ color: t.muted, fontSize: 14, lineHeight: 20 }}>
                 {t2('codeSentTo', { email: email.trim() })}
               </Text>
+              <Text style={{ color: t.muted, fontSize: 12 }}>{t2('codeFallbackHint')}</Text>
               <TextInput
                 value={code}
                 onChangeText={setCode}

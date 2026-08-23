@@ -30,28 +30,26 @@ Check it worked: **Database → Tables** should list all 6 tables.
 > `create table` fail if they already exist). If it errors partway, don't re-run it
 > blindly — note the error and get a cleanup script for exactly the part that ran.
 
-## 3. Fix the OTP email template (the one real gotcha)
+## 3. Allow the app's URLs for the sign-in link
 
-The app signs users in with a **6-digit emailed code**. Supabase's default "Magic
-Link" template sends a *link* and no code, so out of the box the email is useless
-to the app.
+The app signs users in with the **magic link** from Supabase's default email
+(the built-in mailer's templates can't be edited, so there's no code in the
+mail — the app detects the session from the link redirect instead). Supabase
+only redirects to allow-listed URLs:
 
-1. **Authentication → Email Templates → Magic Link**.
-2. Replace the body with something like:
+1. **Authentication → URL Configuration**.
+2. **Site URL**: `https://n041m.github.io/jabkozdarma/`
+3. **Redirect URLs** — add both:
+   - `https://n041m.github.io/jabkozdarma/**`
+   - `http://localhost:8081/**`
 
-   ```html
-   <h2>JabkoZdarma</h2>
-   <p>Your sign-in code / Váš přihlašovací kód:</p>
-   <h1>{{ .Token }}</h1>
-   <p>It expires in 1 hour. / Platí 1 hodinu.</p>
-   ```
+Nothing else in auth settings needs changing (Email provider is on by default).
 
-   The required part is `{{ .Token }}` — that's the 6-digit code.
-3. Save. No other auth settings need changing (Email provider is on by default).
-
-Note on volume: the built-in mailer is heavily rate-limited (a few emails per
-hour) — fine for testing, but plug in custom SMTP (Resend's free tier works,
-**Authentication → SMTP Settings**) before telling other people about the app.
+Later, before real launch: set up custom SMTP (**Authentication → SMTP
+Settings**; Resend's free tier works). That lifts the built-in mailer's harsh
+rate limit (a few emails per hour) **and** unlocks editable templates — add
+`{{ .Token }}` to the Magic Link template and the app's "code from the email"
+field starts working as an alternative to tapping the link.
 
 ## 4. Copy the two values
 
@@ -86,8 +84,8 @@ gh workflow run deploy.yml --repo N041M/jabkozdarma
 
 A fresh database is **empty** — the Prague demo pins you saw are local-mode-only.
 
-1. Open the app → Profile → pick a username, enter your email → **Email me a code**
-   → type the 6-digit code from the mail.
+1. Open the app → Profile → pick a username, enter your email → **Email me a
+   sign-in link** → open the email *on the same device/browser* and tap **Sign in**.
 2. Verify: **Authentication → Users** shows your account, and **Table Editor →
    profiles** has your row.
 3. Optional: to start the map with the five Prague pins, run
@@ -98,7 +96,8 @@ A fresh database is **empty** — the Prague demo pins you saw are local-mode-on
 
 | Symptom | Cause / fix |
 | --- | --- |
-| Email arrives with a link, no code | Step 3 skipped — template needs `{{ .Token }}` |
+| Link in email says "requested path is invalid" | Step 3 skipped — the app URL isn't in Redirect URLs |
+| Tapping the link doesn't sign you in | Link was opened in a different browser than the app — open the email on the same device/browser |
 | "email rate limit exceeded" | Built-in mailer cap — wait an hour or set custom SMTP |
 | App still says "Local mode" | Env vars not baked in — restart dev server / re-run deploy after setting variables |
 | Map is empty after connecting | Expected on a fresh DB — sign in and add a tree, or run `seed.sql` |

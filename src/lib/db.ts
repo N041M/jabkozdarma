@@ -201,9 +201,15 @@ export async function setFavorite(userId: string, treeId: string, on: boolean): 
 // ---------- auth ----------
 
 export async function sendLoginCode(email: string, username: string): Promise<void> {
+  // The email carries a magic link back to the app (and, with a custom SMTP
+  // template, also a 6-digit code — both complete the same sign-in).
+  const emailRedirectTo =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${process.env.EXPO_BASE_URL ?? ''}/`
+      : undefined;
   const { error } = await sb().auth.signInWithOtp({
     email,
-    options: { data: { username }, shouldCreateUser: true },
+    options: { data: { username }, shouldCreateUser: true, emailRedirectTo },
   });
   if (error) throw error;
 }
