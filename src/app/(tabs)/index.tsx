@@ -58,10 +58,17 @@ export default function MapScreen() {
   };
 
   const locateMe = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-    const pos = await Location.getCurrentPositionAsync({});
-    setFlyTo({ lat: pos.coords.latitude, lng: pos.coords.longitude, key: Date.now() });
+    // The permission prompt can background the page; never let a rejection
+    // here escape as an unhandled error.
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({});
+      if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
+      setFlyTo({ lat: pos.coords.latitude, lng: pos.coords.longitude, key: Date.now() });
+    } catch (err) {
+      console.warn('[locate] failed', err);
+    }
   };
 
   return (

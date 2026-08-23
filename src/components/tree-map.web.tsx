@@ -25,9 +25,15 @@ export default function TreeMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
-  // Bumped when the WebGL context dies (mobile GPU pressure, backgrounding);
-  // recreates the whole map instead of leaving a dead green canvas.
+  // Bumped to rebuild the map after it dies (lost WebGL context, or a style
+  // that never loaded because the page was hidden). Camera is preserved.
   const [mapEpoch, setMapEpoch] = useState(0);
+  const cameraRef = useRef<{
+    center: [number, number];
+    zoom: number;
+    pitch: number;
+    bearing: number;
+  } | null>(null);
 
   // The click handler is bound once, so live values go through refs.
   const placingRef = useRef(placing);
@@ -39,14 +45,25 @@ export default function TreeMap({
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const cam = cameraRef.current;
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: GO_STYLE,
-      center: [PRAGUE.lng, PRAGUE.lat],
-      zoom: 11.5,
-      pitch: 55,
+      center: cam?.center ?? [PRAGUE.lng, PRAGUE.lat],
+      zoom: cam?.zoom ?? 11.5,
+      pitch: cam?.pitch ?? 55,
+      bearing: cam?.bearing ?? 0,
       maxPitch: 70,
       attributionControl: { compact: true },
+    });
+    map.on('moveend', () => {
+      const c = map.getCenter();
+      cameraRef.current = {
+        center: [c.lng, c.lat],
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+      };
     });
     // Zoom buttons only for mouse users — touch devices pinch, and the
     // buttons would collide with the route banner on small screens.
@@ -69,7 +86,33 @@ export default function TreeMap({
     // at MapLibre's 400x300 fallback.
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(containerRef.current);
+
+    // Browsers stall requestAnimationFrame while a page is hidden, and
+    // MapLibre defers its style load to a frame callback — so a map created
+    // while hidden (e.g. the page was backgrounded by the location
+    // permission prompt) can come back with no style at all: a blank
+    // background-coloured canvas that never recovers. Rebuild if that
+    // happened, and re-measure in case the container was sized meanwhile.
+    const recoverIfDead = () => {
+      const m = mapRef.current;
+      if (!m || document.visibilityState !== 'visible') return;
+      m.resize();
+      if (!m.isStyleLoaded()) {
+        setTimeout(() => {
+          const live = mapRef.current;
+          if (live && document.visibilityState === 'visible' && !live.isStyleLoaded()) {
+            console.warn('[map] style never loaded — rebuilding');
+            setMapEpoch((n) => n + 1);
+          }
+        }, 2500);
+      }
+    };
+    document.addEventListener('visibilitychange', recoverIfDead);
+    const bootCheck = setTimeout(recoverIfDead, 4000);
+
     return () => {
+      clearTimeout(bootCheck);
+      document.removeEventListener('visibilitychange', recoverIfDead);
       ro.disconnect();
       markersRef.current.forEach((m) => m.remove());
       map.remove();

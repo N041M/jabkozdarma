@@ -6,6 +6,8 @@
 --    geometry space instead (and index it).
 -- 2. Owners can delete their own pins.
 
+-- Re-runnable: safe to execute again if you already ran an earlier version.
+drop policy if exists "users delete own trees" on trees;
 create policy "users delete own trees" on trees
   for delete using (auth.uid() = created_by);
 
