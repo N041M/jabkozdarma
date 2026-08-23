@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Circle, Marker, Polyline } from 'react-native-maps';
 
 import { pinColor } from '@/lib/labels';
 import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
@@ -13,6 +13,8 @@ export default function TreeMap({
   onPressMap,
   flyTo,
   route,
+  userLocation,
+  placeRadiusM,
 }: TreeMapProps) {
   const mapRef = useRef<MapView>(null);
 
@@ -49,6 +51,23 @@ export default function TreeMap({
         const { latitude, longitude } = e.nativeEvent.coordinate;
         onPressMap(latitude, longitude);
       }}>
+      {userLocation && placeRadiusM ? (
+        <Circle
+          center={{ latitude: userLocation.lat, longitude: userLocation.lng }}
+          radius={placeRadiusM}
+          strokeColor="#3B6FD4"
+          fillColor="rgba(59,111,212,0.12)"
+          strokeWidth={2}
+        />
+      ) : null}
+      {userLocation && (
+        <Marker
+          coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}>
+          <View style={styles.player} />
+        </Marker>
+      )}
       {route && route.coords.length > 1 && (
         <Polyline
           coordinates={route.coords.map((c) => ({ latitude: c.lat, longitude: c.lng }))}
@@ -93,4 +112,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   unverified: { opacity: 0.55 },
+  // Native (v2) keeps a plain position dot; the avatar sprite is web-only.
+  player: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#3B6FD4',
+  },
 });

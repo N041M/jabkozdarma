@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,6 +13,8 @@ import { formatRoute } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 
 const DUPLICATE_RADIUS_M = 25;
+/** You must be standing near a tree to pin it — this is the whole point. */
+const PLACE_RADIUS_M = 100;
 
 export default function MapScreen() {
   const t = useTheme();
@@ -26,6 +28,38 @@ export default function MapScreen() {
 
   const [placing, setPlacing] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; key: number } | null>(null);
+  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const watchRef = useRef<Location.LocationSubscription | null>(null);
+
+  /** Follow the player's position so the avatar keeps up as they walk. */
+  const startWatching = useCallback(async () => {
+    if (watchRef.current) return true;
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') return false;
+      watchRef.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 5, timeInterval: 5000 },
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            setUserLoc({ lat: latitude, lng: longitude });
+          }
+        }
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    startWatching();
+    return () => {
+      watchRef.current?.remove();
+      watchRef.current = null;
+    };
+  }, [startWatching]);
 
   // Also drop any tree with invalid coordinates — bad persisted data must
   // degrade to a missing pin, never a crashed map.
@@ -38,16 +72,46 @@ export default function MapScreen() {
     [trees]
   );
 
-  const startAdding = () => {
+  const startAdding = async () => {
     if (!profile) {
       router.push('/(tabs)/profile');
       return;
     }
+    setNotice(null);
+    let here = userLoc;
+    if (!here) {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setNotice(t2('needLocationToAdd'));
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({});
+        here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLoc(here);
+        startWatching();
+      } catch {
+        setNotice(t2('needLocationToAdd'));
+        return;
+      }
+    }
+    setFlyTo({ ...here, key: Date.now() });
     setPlacing(true);
   };
 
   const placeTree = (lat: number, lng: number) => {
+    if (!userLoc) {
+      setNotice(t2('needLocationToAdd'));
+      return;
+    }
+    // Pins must be within walking distance of the person adding them —
+    // it keeps the map honest and is the point of a field-survey app.
+    if (distanceMeters(lat, lng, userLoc.lat, userLoc.lng) > PLACE_RADIUS_M) {
+      setNotice(t2('tooFarToPlace', { max: PLACE_RADIUS_M }));
+      return; // stay in placing mode so they can try again
+    }
     setPlacing(false);
+    setNotice(null);
     const nearby = visibleTrees.filter(
       (tree) => distanceMeters(lat, lng, tree.lat, tree.lng) < DUPLICATE_RADIUS_M
     ).length;
@@ -65,7 +129,10 @@ export default function MapScreen() {
       if (status !== 'granted') return;
       const pos = await Location.getCurrentPositionAsync({});
       if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
-      setFlyTo({ lat: pos.coords.latitude, lng: pos.coords.longitude, key: Date.now() });
+      const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setUserLoc(here); // also drops the avatar, not just the camera
+      startWatching();
+      setFlyTo({ ...here, key: Date.now() });
     } catch (err) {
       console.warn('[locate] failed', err);
     }
@@ -81,6 +148,8 @@ export default function MapScreen() {
         onPressMap={placeTree}
         flyTo={flyTo}
         route={activeRoute}
+        userLocation={userLoc}
+        placeRadiusM={placing ? PLACE_RADIUS_M : null}
       />
 
       {activeRoute && !placing && (
@@ -102,14 +171,33 @@ export default function MapScreen() {
 
       {placing && (
         <View style={[styles.banner, { top: insets.top + 12, backgroundColor: t.surface }]}>
-          <Text style={{ color: t.ink, fontWeight: '600', flex: 1 }}>{t2('placingBanner')}</Text>
-          <Pressable onPress={() => setPlacing(false)} hitSlop={8}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: t.ink, fontWeight: '600' }}>{t2('placingBanner')}</Text>
+            <Text style={{ color: notice ? t.red : t.muted, fontSize: 12 }}>
+              {notice ?? t2('placingHint', { max: PLACE_RADIUS_M })}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              setPlacing(false);
+              setNotice(null);
+            }}
+            hitSlop={8}>
             <Text style={{ color: t.red, fontWeight: '700' }}>{t2('cancel')}</Text>
           </Pressable>
         </View>
       )}
 
-      {!placing && !activeRoute && (
+      {!placing && notice && (
+        <View style={[styles.banner, { top: insets.top + 12, backgroundColor: t.surface }]}>
+          <Text style={{ color: t.red, fontSize: 13, flex: 1 }}>{notice}</Text>
+          <Pressable onPress={() => setNotice(null)} hitSlop={8}>
+            <Ionicons name="close" size={20} color={t.muted} />
+          </Pressable>
+        </View>
+      )}
+
+      {!placing && !activeRoute && !notice && (
         <View style={[styles.legend, { top: insets.top + 12, backgroundColor: t.surface }]}>
           {(
             [

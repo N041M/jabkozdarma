@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import { latestReport } from '@/lib/labels';
 import { GO_STYLE } from '@/lib/map-style';
+import { playerSpriteSvg } from '@/lib/player-sprite';
 import { treeSpriteSvg } from '@/lib/tree-sprite';
 import type { Tree } from '@/lib/types';
-import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
+import { PRAGUE, ROUTE_COLOR, circleCoords, type TreeMapProps } from './tree-map.types';
 
 // Metro can't resolve MapLibre's import.meta-relative module worker, so the
 // worker + shared chunk are served from public/ (kept in sync by postinstall).
@@ -21,10 +22,13 @@ export default function TreeMap({
   onPressMap,
   flyTo,
   route,
+  userLocation,
+  placeRadiusM,
 }: TreeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const playerRef = useRef<maplibregl.Marker | null>(null);
   // Bumped to rebuild the map after it dies (lost WebGL context, or a style
   // that never loaded because the page was hidden). Camera is preserved.
   const [mapEpoch, setMapEpoch] = useState(0);
@@ -115,6 +119,7 @@ export default function TreeMap({
       document.removeEventListener('visibilitychange', recoverIfDead);
       ro.disconnect();
       markersRef.current.forEach((m) => m.remove());
+      playerRef.current = null; // map.remove() drops its marker; clear the stale ref
       map.remove();
       mapRef.current = null;
     };
@@ -149,6 +154,72 @@ export default function TreeMap({
   useEffect(() => {
     if (flyTo) mapRef.current?.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: 14, duration: 800 });
   }, [flyTo]);
+
+  // The player avatar — one marker, moved as the position updates.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!userLocation) {
+      playerRef.current?.remove();
+      playerRef.current = null;
+      return;
+    }
+    if (!playerRef.current) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:46px;height:62px;pointer-events:none';
+      el.innerHTML = playerSpriteSvg();
+      playerRef.current = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([userLocation.lng, userLocation.lat])
+        .addTo(map);
+    } else {
+      playerRef.current.setLngLat([userLocation.lng, userLocation.lat]);
+    }
+  }, [userLocation, mapEpoch]);
+
+  // Shaded circle showing how far from yourself you may drop a pin.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const show = !!(userLocation && placeRadiusM);
+      const source = map.getSource('place-radius') as maplibregl.GeoJSONSource | undefined;
+      if (show) {
+        const data: GeoJSON.Feature = {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [circleCoords(userLocation!, placeRadiusM!)],
+          },
+        };
+        if (source) source.setData(data);
+        else {
+          map.addSource('place-radius', { type: 'geojson', data });
+          map.addLayer({
+            id: 'place-radius-fill',
+            type: 'fill',
+            source: 'place-radius',
+            paint: { 'fill-color': '#3B6FD4', 'fill-opacity': 0.12 },
+          });
+          map.addLayer({
+            id: 'place-radius-line',
+            type: 'line',
+            source: 'place-radius',
+            paint: { 'line-color': '#3B6FD4', 'line-width': 2, 'line-dasharray': [2, 2] },
+          });
+        }
+      } else {
+        if (map.getLayer('place-radius-line')) map.removeLayer('place-radius-line');
+        if (map.getLayer('place-radius-fill')) map.removeLayer('place-radius-fill');
+        if (map.getSource('place-radius')) map.removeSource('place-radius');
+      }
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+    return () => {
+      map.off('load', apply);
+    };
+  }, [userLocation, placeRadiusM, mapEpoch]);
 
   // Draw / clear the walking route as a GeoJSON line layer.
   useEffect(() => {

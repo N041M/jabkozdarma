@@ -16,4 +16,24 @@ export interface TreeMapProps {
   flyTo?: { lat: number; lng: number; key: number } | null;
   /** Walking route to draw on the map; camera fits to it when set. */
   route?: { coords: LatLng[] } | null;
+  /** The player's own position — drawn as the avatar. */
+  userLocation?: LatLng | null;
+  /** While placing, shade the radius the user is allowed to pin inside. */
+  placeRadiusM?: number | null;
+}
+
+/** Ring of coordinates approximating a circle, for the placement radius. */
+export function circleCoords(
+  center: LatLng,
+  radiusM: number,
+  steps = 64
+): [number, number][] {
+  const latOffset = radiusM / 111_320;
+  const lngOffset = radiusM / (111_320 * Math.cos((center.lat * Math.PI) / 180));
+  const ring: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    ring.push([center.lng + lngOffset * Math.cos(angle), center.lat + latOffset * Math.sin(angle)]);
+  }
+  return ring;
 }
