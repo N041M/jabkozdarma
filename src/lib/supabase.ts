@@ -16,8 +16,16 @@ import { Platform } from 'react-native';
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+// Static export server-renders each route in Node, where there is no window/
+// localStorage — creating the client there crashes on session restore. The
+// client only exists in a real browser (or on native); isBackendConfigured
+// stays env-based so server-rendered and hydrated UI match.
+const isServerRender = Platform.OS === 'web' && typeof window === 'undefined';
+
+export const isBackendConfigured = Boolean(url && anonKey);
+
 export const supabase: SupabaseClient | null =
-  url && anonKey
+  url && anonKey && !isServerRender
     ? createClient(url, anonKey, {
         auth: {
           storage: AsyncStorage,
@@ -27,5 +35,3 @@ export const supabase: SupabaseClient | null =
         },
       })
     : null;
-
-export const isBackendConfigured = supabase !== null;
