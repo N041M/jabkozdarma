@@ -50,6 +50,7 @@ function preferredUsername(user: {
 export interface NewTreeInput {
   lat: number;
   lng: number;
+  species: Tree['species'];
   variety: string | null;
   description: string | null;
   access: Tree['access'];
@@ -188,7 +189,6 @@ export const useStore = create<AppState>()(
         if (!profile) return null;
         const tree: Tree = {
           id: makeId(),
-          species: 'apple',
           status: 'active',
           createdBy: profile.id,
           createdAt: new Date().toISOString(),

@@ -28,7 +28,14 @@ export default function TreeMap({
 }: TreeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  // Markers are recycled by tree id — rebuilding every DOM node on each
+  // store update was making pan/zoom stutter once the map filled up.
+  const markerStoreRef = useRef(
+    new Map<
+      string,
+      { marker: maplibregl.Marker; el: HTMLDivElement; key: string; tree: Tree }
+    >()
+  );
   const playerRef = useRef<maplibregl.Marker | null>(null);
   // Bumped to rebuild the map after it dies (lost WebGL context, or a style
   // that never loaded because the page was hidden). Camera is preserved.
@@ -61,6 +68,11 @@ export default function TreeMap({
       bearing: cam?.bearing ?? 0,
       maxPitch: mode === 'flat' ? 0 : 70,
       attributionControl: { compact: true },
+      // Perf: no cross-fade (it reads as "buffering"), keep a generous tile
+      // cache so panning back is instant, and don't re-request tiles we have.
+      fadeDuration: 0,
+      maxTileCacheSize: 300,
+      refreshExpiredTiles: false,
     });
     map.on('moveend', () => {
       const c = map.getCenter();
@@ -120,37 +132,63 @@ export default function TreeMap({
       clearTimeout(bootCheck);
       document.removeEventListener('visibilitychange', recoverIfDead);
       ro.disconnect();
-      markersRef.current.forEach((m) => m.remove());
-      playerRef.current = null; // map.remove() drops its marker; clear the stale ref
+      markerStoreRef.current.clear(); // map.remove() drops the markers themselves
+      playerRef.current = null; // clear the stale ref too
       map.remove();
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapEpoch, mode]);
 
-  // Re-render markers whenever trees or reports change.
+  // Sync markers to the tree list, reusing existing DOM nodes.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = trees.map((tree: Tree) => {
-      // GO-style tree sprite standing on its coordinate; the whole 48px
-      // element is the (finger-sized) hit area.
+    const store = markerStoreRef.current;
+    const live = new Set<string>();
+
+    for (const tree of trees) {
+      live.add(tree.id);
+      const state = latestReport(tree.id, reports)?.state ?? 'none';
+      // everything the sprite's appearance depends on
+      const key = `${tree.species}|${state}|${tree.status}`;
+      const existing = store.get(tree.id);
+      if (existing) {
+        existing.tree = tree;
+        if (existing.key !== key) {
+          existing.el.innerHTML = treeSpriteSvg(tree.species, state, tree.status === 'unverified');
+          existing.key = key;
+        }
+        existing.marker.setLngLat([tree.lng, tree.lat]);
+        continue;
+      }
+      // GO-style sprite standing on its coordinate; the whole 48px element
+      // is the (finger-sized) hit area.
       const el = document.createElement('div');
       el.style.cssText =
         'width:48px;height:56px;display:flex;align-items:flex-end;justify-content:center;cursor:pointer';
-      el.innerHTML = treeSpriteSvg(
-        latestReport(tree.id, reports)?.state ?? 'none',
-        tree.status === 'unverified'
-      );
+      el.innerHTML = treeSpriteSvg(tree.species, state, tree.status === 'unverified');
+      const entry = {
+        el,
+        key,
+        tree,
+        marker: new maplibregl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([tree.lng, tree.lat])
+          .addTo(map),
+      };
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        if (!placingRef.current) onPressTreeRef.current(tree);
+        if (!placingRef.current) onPressTreeRef.current(entry.tree);
       });
-      return new maplibregl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([tree.lng, tree.lat])
-        .addTo(map);
-    });
+      store.set(tree.id, entry);
+    }
+
+    for (const [id, entry] of store) {
+      if (!live.has(id)) {
+        entry.marker.remove();
+        store.delete(id);
+      }
+    }
   }, [trees, reports, mapEpoch, mode]);
 
   useEffect(() => {

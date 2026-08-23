@@ -30,6 +30,15 @@ const en = {
   minutes: '{m} min',
   hoursMinutes: '{h} h {m} min',
 
+  // species
+  speciesLabel: 'WHAT KIND OF TREE?',
+  species_apple: 'Apple',
+  species_pear: 'Pear',
+  species_plum: 'Plum',
+  species_cherry: 'Cherry',
+  species_walnut: 'Walnut',
+  species_other: 'Other fruit',
+
   // access
   access_public: 'Public land',
   access_roadside: 'Roadside',
@@ -155,6 +164,14 @@ const cs: typeof en = {
   routeFormat: '{dist} · {time} pěšky',
   minutes: '{m} min',
   hoursMinutes: '{h} h {m} min',
+
+  speciesLabel: 'JAKÝ JE TO STROM?',
+  species_apple: 'Jabloň',
+  species_pear: 'Hrušeň',
+  species_plum: 'Švestka',
+  species_cherry: 'Třešeň',
+  species_walnut: 'Ořešák',
+  species_other: 'Jiné ovoce',
 
   access_public: 'Veřejné',
   access_roadside: 'U cesty',

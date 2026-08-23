@@ -16,9 +16,9 @@ import {
 import { Button } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
 import { monthShort, t as t2 } from '@/lib/i18n';
-import { accessLabels } from '@/lib/labels';
+import { accessLabels, speciesLabels } from '@/lib/labels';
 import { useStore } from '@/lib/store';
-import type { AccessType } from '@/lib/types';
+import { SPECIES, type AccessType, type Species } from '@/lib/types';
 
 const ACCESS_TYPES: AccessType[] = ['public', 'roadside', 'ask_owner'];
 
@@ -66,6 +66,7 @@ export default function AddTree() {
   const updateTree = useStore((s) => s.updateTree);
   const editing = useStore((s) => s.trees.find((tr) => tr.id === params.editId));
 
+  const [species, setSpecies] = useState<Species>(editing?.species ?? 'apple');
   const [variety, setVariety] = useState(editing?.variety ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [access, setAccess] = useState<AccessType>(editing?.access ?? 'public');
@@ -100,6 +101,7 @@ export default function AddTree() {
   const save = () => {
     const season = SEASONS[seasonIdx];
     const fields = {
+      species,
       variety: variety.trim() || null,
       description: description.trim() || null,
       access,
@@ -136,6 +138,27 @@ export default function AddTree() {
           </Text>
         </View>
       )}
+
+      <Text style={[styles.label, { color: t.muted }]}>{t2('speciesLabel')}</Text>
+      <View style={styles.chipRow}>
+        {SPECIES.map((sp) => (
+          <Pressable
+            key={sp}
+            onPress={() => setSpecies(sp)}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: species === sp ? t.green : t.surface,
+                borderColor: species === sp ? t.green : t.line,
+              },
+            ]}>
+            <Text
+              style={{ color: species === sp ? '#FFF' : t.ink, fontSize: 13, fontWeight: '600' }}>
+              {speciesLabels[sp]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       <Text style={[styles.label, { color: t.muted }]}>{t2('varietyLabel')}</Text>
       <TextInput

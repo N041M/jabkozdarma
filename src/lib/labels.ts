@@ -1,4 +1,4 @@
-import type { AccessType, FlagReason, RipenessState, Tree, TreeReport } from './types';
+import type { AccessType, FlagReason, RipenessState, Species, Tree, TreeReport } from './types';
 import { ripenessColors } from '@/constants/theme';
 import { monthShort, t } from './i18n';
 
@@ -7,6 +7,20 @@ export const accessLabels: Record<AccessType, string> = {
   roadside: t('access_roadside'),
   ask_owner: t('access_ask_owner'),
 };
+
+export const speciesLabels: Record<Species, string> = {
+  apple: t('species_apple'),
+  pear: t('species_pear'),
+  plum: t('species_plum'),
+  cherry: t('species_cherry'),
+  walnut: t('species_walnut'),
+  other: t('species_other'),
+};
+
+/** Heading for a tree: its variety if known, otherwise the species. */
+export function treeTitle(tree: Tree): string {
+  return tree.variety ?? speciesLabels[tree.species] ?? speciesLabels.other;
+}
 
 export const ripenessLabels: Record<RipenessState, string> = {
   flowering: t('state_flowering'),

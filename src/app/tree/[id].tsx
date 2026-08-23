@@ -13,6 +13,7 @@ import {
   ripenessLabels,
   seasonLabel,
   timeAgo,
+  treeTitle,
 } from '@/lib/labels';
 import { fetchWalkingRoute } from '@/lib/routing';
 import { useStore } from '@/lib/store';
@@ -75,7 +76,7 @@ export default function TreeDetail() {
       );
       setRoute({
         treeId: tree.id,
-        treeLabel: tree.variety ?? t2('appleTree'),
+        treeLabel: treeTitle(tree),
         ...result,
       });
       setRouting('idle');
@@ -89,7 +90,7 @@ export default function TreeDetail() {
     <>
       <Stack.Screen
         options={{
-          title: tree.variety ?? t2('appleTree'),
+          title: treeTitle(tree),
           headerRight: () => (
             <Pressable onPress={() => toggleFavorite(tree.id)} hitSlop={8} disabled={!profile}>
               <Ionicons

@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
 import { t as t2 } from '@/lib/i18n';
-import { timeAgo } from '@/lib/labels';
+import { timeAgo, treeTitle } from '@/lib/labels';
 import { useStore } from '@/lib/store';
 import { isBackendConfigured } from '@/lib/supabase';
 
@@ -222,7 +222,7 @@ export default function ProfileScreen() {
               {myTrees.map((tree) => (
                 <Link key={tree.id} href={`/tree/${tree.id}`} asChild>
                   <Text style={[styles.link, { color: t.green }]}>
-                    {tree.variety ?? t2('appleTree')} ·{' '}
+                    {treeTitle(tree)} ·{' '}
                     {t2('addedWhen', { when: timeAgo(tree.createdAt) })}
                   </Text>
                 </Link>
@@ -236,7 +236,7 @@ export default function ProfileScreen() {
               {favoriteTrees.map((tree) => (
                 <Link key={tree.id} href={`/tree/${tree.id}`} asChild>
                   <Text style={[styles.link, { color: t.green }]}>
-                    {tree.variety ?? t2('appleTree')}
+                    {treeTitle(tree)}
                     {tree.description ? ` — ${tree.description.slice(0, 40)}…` : ''}
                   </Text>
                 </Link>

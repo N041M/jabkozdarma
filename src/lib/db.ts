@@ -1,11 +1,12 @@
 import { supabase } from './supabase';
-import type {
-  AccessType,
-  FlagReason,
-  Profile,
-  RipenessState,
-  Tree,
-  TreeReport,
+import {
+  SPECIES,
+  type AccessType,
+  type FlagReason,
+  type Profile,
+  type RipenessState,
+  type Tree,
+  type TreeReport,
 } from './types';
 import type { NewTreeInput } from './store';
 
@@ -74,7 +75,9 @@ export async function fetchSnapshot(): Promise<DbSnapshot> {
     id: r.id,
     lat: r.lat,
     lng: r.lng,
-    species: 'apple',
+    species: (SPECIES as readonly string[]).includes(r.species)
+      ? (r.species as Tree['species'])
+      : 'other',
     variety: r.variety,
     description: r.description,
     access: r.access,
@@ -115,7 +118,7 @@ export async function insertTree(id: string, input: NewTreeInput, userId: string
   const { error } = await sb().from('trees').insert({
     id,
     location: `SRID=4326;POINT(${input.lng} ${input.lat})`,
-    species: 'apple',
+    species: input.species,
     variety: input.variety,
     description: input.description,
     access: input.access,
@@ -128,6 +131,7 @@ export async function insertTree(id: string, input: NewTreeInput, userId: string
 
 export async function updateTree(id: string, patch: Partial<NewTreeInput>): Promise<void> {
   const row: Record<string, unknown> = {};
+  if ('species' in patch) row.species = patch.species;
   if ('variety' in patch) row.variety = patch.variety;
   if ('description' in patch) row.description = patch.description;
   if ('access' in patch) row.access = patch.access;

@@ -162,22 +162,60 @@ export const GO_STYLE: StyleSpecification = {
       maxzoom: 15,
       paint: { 'fill-color': '#DFE9EA', 'fill-opacity': 0.85 },
     },
-    // sparse labels: cities and towns only
+    // place names
     {
       id: 'place-labels',
       type: 'symbol',
       source: 'omt',
       'source-layer': 'place',
-      filter: ['in', 'class', 'city', 'town'],
+      filter: ['in', 'class', 'city', 'town', 'village', 'suburb', 'neighbourhood'],
       layout: {
         'text-field': ['get', 'name'],
         'text-font': ['Noto Sans Bold'],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 14, 16],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 14, 15],
       },
       paint: {
         'text-color': '#2C5E1F',
-        'text-halo-color': 'rgba(255,255,255,0.85)',
+        'text-halo-color': 'rgba(255,255,255,0.9)',
         'text-halo-width': 1.6,
+      },
+    },
+    // street names — you need these to describe where a tree actually is
+    {
+      id: 'road-labels',
+      type: 'symbol',
+      source: 'omt',
+      'source-layer': 'transportation_name',
+      minzoom: 14,
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'symbol-placement': 'line',
+        'text-rotation-alignment': 'map',
+      },
+      paint: {
+        'text-color': '#3A5B2E',
+        'text-halo-color': 'rgba(255,255,255,0.9)',
+        'text-halo-width': 1.5,
+      },
+    },
+    // house numbers, so a pin can be given a real address
+    {
+      id: 'housenumbers',
+      type: 'symbol',
+      source: 'omt',
+      'source-layer': 'housenumber',
+      minzoom: 17.5,
+      layout: {
+        'text-field': ['get', 'housenumber'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 10,
+      },
+      paint: {
+        'text-color': '#6B7A66',
+        'text-halo-color': 'rgba(255,255,255,0.8)',
+        'text-halo-width': 1.2,
       },
     },
   ],
@@ -328,11 +366,29 @@ export const FLAT_STYLE: StyleSpecification = {
         'text-font': ['Noto Sans Regular'],
         'text-size': 11,
         'symbol-placement': 'line',
+        'text-rotation-alignment': 'map',
       },
       paint: {
         'text-color': '#6E6A60',
         'text-halo-color': 'rgba(255,255,255,0.9)',
         'text-halo-width': 1.4,
+      },
+    },
+    {
+      id: 'housenumbers',
+      type: 'symbol',
+      source: 'omt',
+      'source-layer': 'housenumber',
+      minzoom: 17.5,
+      layout: {
+        'text-field': ['get', 'housenumber'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 10,
+      },
+      paint: {
+        'text-color': '#8A857A',
+        'text-halo-color': 'rgba(255,255,255,0.85)',
+        'text-halo-width': 1.2,
       },
     },
   ],
