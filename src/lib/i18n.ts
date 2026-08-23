@@ -98,7 +98,7 @@ const en = {
   resendLink: 'Send the link again',
   sendError: 'Couldn’t send the email — check the address and try again.',
   rateLimitError:
-    'Too many sign-in emails were sent in the last hour — the free email service only allows a few. Try again in about an hour.',
+    'Too many sign-in emails in the last hour — the free email service allows only a few. Continue with Google instead, or try again in about an hour.',
   changeEmail: 'Use a different email',
   localProfileNote:
     'Local profile for now — Apple, Google and email sign-in arrive when the Supabase backend is connected.',
@@ -213,7 +213,7 @@ const cs: typeof en = {
   resendLink: 'Poslat odkaz znovu',
   sendError: 'E-mail se nepodařilo odeslat — zkontrolujte adresu a zkuste to znovu.',
   rateLimitError:
-    'Za poslední hodinu se odeslalo příliš mnoho přihlašovacích e-mailů — bezplatná služba jich povolí jen pár. Zkuste to znovu zhruba za hodinu.',
+    'Za poslední hodinu se odeslalo příliš mnoho přihlašovacích e-mailů — bezplatná služba jich povolí jen pár. Použijte přihlášení přes Google, nebo to zkuste zhruba za hodinu.',
   changeEmail: 'Použít jiný e-mail',
   localProfileNote:
     'Zatím jen místní profil — přihlášení přes Apple, Google a e-mail přijde s připojením backendu.',

@@ -77,11 +77,14 @@ One tap, no inbox round-trip, and it sidesteps email rate limits entirely.
 paste the client ID and secret → Save. The "Continue with Google" button in the
 app starts working immediately; no redeploy needed.
 
-## 3c. Custom SMTP with Brevo (lifts the email rate limit)
+## 3c. (Optional, later) Custom SMTP with Brevo
 
-Supabase's built-in mailer allows only a couple of emails per hour and its
-templates are locked. Brevo's free tier (~300/day) works without owning a
-domain — it verifies a single sender address instead.
+**Not needed to run the app.** Auth stays on Supabase: Google for most people,
+Supabase's built-in mailer for the magic-link fallback. That mailer allows only
+a couple of emails per hour, which is fine while Google carries the load.
+
+Do this only when email sign-in gets real use — Brevo's free tier (~300/day)
+works without owning a domain, verifying a single sender address instead.
 
 1. Create a free account at brevo.com.
 2. **Senders, Domains & Dedicated IPs → Senders → Add a sender**: your name and
