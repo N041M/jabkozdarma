@@ -92,6 +92,9 @@ interface AppState {
   setRoute: (route: ActiveRoute) => void;
   clearRoute: () => void;
   setMapMode: (mode: MapMode) => void;
+  renameProfile: (username: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  exportMyData: () => string;
 }
 
 let backendInitialized = false;
@@ -297,6 +300,53 @@ export const useStore = create<AppState>()(
       setRoute: (route) => set({ activeRoute: route }),
       clearRoute: () => set({ activeRoute: null }),
       setMapMode: (mode) => set({ mapMode: mode }),
+
+      renameProfile: async (username) => {
+        const profile = get().profile;
+        const trimmed = username.trim();
+        if (!profile || !trimmed || trimmed === profile.username) return;
+        if (isBackendConfigured) {
+          await db.updateUsername(profile.id, trimmed); // throws on collision
+        }
+        const updated = { ...profile, username: trimmed };
+        set((s) => ({
+          profile: updated,
+          profiles: s.profiles.map((p) => (p.id === profile.id ? updated : p)),
+        }));
+      },
+
+      deleteAccount: async () => {
+        const profile = get().profile;
+        if (!profile) return;
+        if (isBackendConfigured) await db.deleteMyAccount();
+        // wipe every local trace of this person too
+        set((s) => ({
+          profile: null,
+          profiles: s.profiles.filter((p) => p.id !== profile.id),
+          trees: s.trees.filter((t) => t.createdBy !== profile.id),
+          reports: s.reports.filter((r) => r.userId !== profile.id),
+          flags: s.flags.filter((f) => f.userId !== profile.id),
+          favorites: [],
+        }));
+      },
+
+      /** Everything this account holds, as portable JSON (GDPR art. 20). */
+      exportMyData: () => {
+        const s = get();
+        const id = s.profile?.id;
+        return JSON.stringify(
+          {
+            exportedAt: new Date().toISOString(),
+            profile: s.profile,
+            trees: s.trees.filter((t) => t.createdBy === id),
+            reports: s.reports.filter((r) => r.userId === id),
+            flags: s.flags.filter((f) => f.userId === id),
+            favorites: s.favorites,
+          },
+          null,
+          2
+        );
+      },
     }),
     {
       name: 'jabkozdarma-v1',

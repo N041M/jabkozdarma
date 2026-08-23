@@ -39,6 +39,38 @@ export default function ProfileScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const langPref = getLangPreference();
 
+  const renameProfile = useStore((s) => s.renameProfile);
+  const deleteAccount = useStore((s) => s.deleteAccount);
+  const exportMyData = useStore((s) => s.exportMyData);
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const saveName = async () => {
+    setNameError(null);
+    try {
+      await renameProfile(nameDraft);
+      setEditingName(false);
+    } catch (e) {
+      const err = e as { code?: string };
+      setNameError(err?.code === '23505' ? t2('nameTaken') : t2('sendError'));
+    }
+  };
+
+  const downloadData = () => {
+    const json = exportMyData();
+    if (Platform.OS !== 'web') return;
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'jabkozdarma-my-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const submitEmail = async () => {
     setAuthBusy(true);
     setAuthError(null);
@@ -193,10 +225,51 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: t.ink }]}>{profile.username}</Text>
-              <Text style={{ color: t.muted, fontSize: 13 }}>
-                {t2('joined', { when: timeAgo(profile.createdAt) })}
-              </Text>
+              {editingName ? (
+                <View style={{ gap: 8 }}>
+                  <TextInput
+                    value={nameDraft}
+                    onChangeText={setNameDraft}
+                    autoCapitalize="none"
+                    autoFocus
+                    style={[
+                      styles.input,
+                      { backgroundColor: t.bg, color: t.ink, borderColor: t.line },
+                    ]}
+                    onSubmitEditing={saveName}
+                  />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Button label={t2('saveName')} onPress={saveName} />
+                    <Button
+                      label={t2('cancel')}
+                      kind="secondary"
+                      onPress={() => {
+                        setEditingName(false);
+                        setNameError(null);
+                      }}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={[styles.title, { color: t.ink }]}>{profile.username}</Text>
+                    <Pressable
+                      onPress={() => {
+                        setNameDraft(profile.username);
+                        setEditingName(true);
+                      }}
+                      hitSlop={10}
+                      accessibilityLabel={t2('editName')}>
+                      <Ionicons name="pencil" size={17} color={t.muted} />
+                    </Pressable>
+                  </View>
+                  <Text style={{ color: t.muted, fontSize: 13 }}>
+                    {t2('joined', { when: timeAgo(profile.createdAt) })}
+                  </Text>
+                </>
+              )}
+              {nameError && <Text style={{ color: t.red, fontSize: 13 }}>{nameError}</Text>}
             </View>
           </View>
 
@@ -222,7 +295,7 @@ export default function ProfileScreen() {
               <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('myTrees')}</Text>
               {myTrees.map((tree) => (
                 <Link key={tree.id} href={`/tree/${tree.id}`} asChild>
-                  <Text style={[styles.link, { color: t.green }]}>
+                  <Text style={StyleSheet.flatten([styles.link, { color: t.green }])}>
                     {treeTitle(tree)} ·{' '}
                     {t2('addedWhen', { when: timeAgo(tree.createdAt) })}
                   </Text>
@@ -236,7 +309,7 @@ export default function ProfileScreen() {
               <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('favorites')}</Text>
               {favoriteTrees.map((tree) => (
                 <Link key={tree.id} href={`/tree/${tree.id}`} asChild>
-                  <Text style={[styles.link, { color: t.green }]}>
+                  <Text style={StyleSheet.flatten([styles.link, { color: t.green }])}>
                     {treeTitle(tree)}
                     {tree.description ? ` — ${tree.description.slice(0, 40)}…` : ''}
                   </Text>
@@ -246,6 +319,33 @@ export default function ProfileScreen() {
           )}
 
           <Button label={t2('signOut')} kind="danger" onPress={signOut} style={{ marginTop: 12 }} />
+
+          <View style={[styles.langSection, { borderColor: t.line }]}>
+            <Text style={[styles.label, { color: t.muted }]}>{t2('yourData')}</Text>
+            <Button label={t2('downloadData')} kind="secondary" onPress={downloadData} />
+            <Text style={{ color: t.muted, fontSize: 12, lineHeight: 17 }}>
+              {t2('deleteAccountWarning')}
+            </Text>
+            <Pressable
+              onPress={async () => {
+                if (!confirmDelete) {
+                  setConfirmDelete(true);
+                  return;
+                }
+                setDeleteError(null);
+                try {
+                  await deleteAccount();
+                } catch {
+                  setDeleteError(t2('deleteAccountError'));
+                }
+              }}
+              hitSlop={8}>
+              <Text style={{ color: t.red, fontSize: 14, fontWeight: '700' }}>
+                {confirmDelete ? t2('deleteAccountConfirm') : t2('deleteAccount')}
+              </Text>
+            </Pressable>
+            {deleteError && <Text style={{ color: t.red, fontSize: 13 }}>{deleteError}</Text>}
+          </View>
         </>
       )}
 
@@ -280,6 +380,10 @@ export default function ProfileScreen() {
           })}
         </View>
       </View>
+
+      <Link href="/privacy" asChild>
+        <Text style={StyleSheet.flatten([styles.link, { color: t.green, marginTop: 4 }])}>{t2('privacyLink')}</Text>
+      </Link>
 
       <View style={[styles.backendRow, { borderColor: t.line }]}>
         <View

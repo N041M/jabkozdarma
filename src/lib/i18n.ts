@@ -131,6 +131,20 @@ const en = {
   languageLabel: 'Language',
   langAuto: 'Device',
 
+  // privacy & account
+  privacyTitle: 'Privacy & your data',
+  privacyLink: 'Privacy & your data',
+  yourData: 'YOUR DATA',
+  downloadData: 'Download my data',
+  deleteAccount: 'Delete my account',
+  deleteAccountConfirm: 'Tap again to delete your account permanently',
+  deleteAccountWarning:
+    'This erases your profile, your email and the trees and reports you added. It cannot be undone.',
+  deleteAccountError: 'Couldn’t delete the account — please try again.',
+  editName: 'Change name',
+  saveName: 'Save',
+  nameTaken: 'That name is already taken — try another.',
+
   // error recovery
   errorTitle: 'Something went wrong',
   errorRetry: 'Try again',
@@ -261,6 +275,19 @@ const cs: typeof en = {
 
   languageLabel: 'Jazyk',
   langAuto: 'Podle zařízení',
+
+  privacyTitle: 'Soukromí a vaše data',
+  privacyLink: 'Soukromí a vaše data',
+  yourData: 'VAŠE DATA',
+  downloadData: 'Stáhnout moje data',
+  deleteAccount: 'Smazat účet',
+  deleteAccountConfirm: 'Klepněte znovu pro trvalé smazání účtu',
+  deleteAccountWarning:
+    'Smaže se profil, e-mail i stromy a hlášení, které jste přidali. Akci nelze vzít zpět.',
+  deleteAccountError: 'Účet se nepodařilo smazat — zkuste to prosím znovu.',
+  editName: 'Změnit jméno',
+  saveName: 'Uložit',
+  nameTaken: 'Toto jméno je už obsazené — zkuste jiné.',
 
   errorTitle: 'Něco se pokazilo',
   errorRetry: 'Zkusit znovu',

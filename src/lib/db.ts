@@ -271,6 +271,19 @@ export async function ensureProfile(userId: string, desiredUsername: string): Pr
   throw new Error('could not allocate a username');
 }
 
+/** Rename the signed-in user. Throws with code 23505 if taken. */
+export async function updateUsername(userId: string, username: string): Promise<void> {
+  const { error } = await sb().from('profiles').update({ username }).eq('id', userId);
+  if (error) throw error;
+}
+
+/** GDPR erasure — see supabase/migration-002-gdpr.sql. */
+export async function deleteMyAccount(): Promise<void> {
+  const { error } = await sb().rpc('delete_my_account');
+  if (error) throw error;
+  await sb().auth.signOut();
+}
+
 export async function signOutBackend(): Promise<void> {
   await sb().auth.signOut();
 }

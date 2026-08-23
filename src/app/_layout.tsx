@@ -75,6 +75,10 @@ export default function RootLayout() {
           options={{ title: t2('appleTree'), headerLeft: () => <HeaderBack /> }}
         />
         <Stack.Screen
+          name="privacy"
+          options={{ title: t2('privacyTitle'), headerLeft: () => <HeaderBack /> }}
+        />
+        <Stack.Screen
           name="add-tree"
           options={{
             title: t2('addTreeTitle'),
