@@ -206,16 +206,27 @@ export async function setFavorite(userId: string, treeId: string, on: boolean): 
 
 // ---------- auth ----------
 
+function appRedirectUrl(): string | undefined {
+  return typeof window !== 'undefined'
+    ? `${window.location.origin}${process.env.EXPO_BASE_URL ?? ''}/`
+    : undefined;
+}
+
+/** Web OAuth: redirects to Google and back; the session arrives in the URL. */
+export async function signInWithGoogle(): Promise<void> {
+  const { error } = await sb().auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: appRedirectUrl() },
+  });
+  if (error) throw error;
+}
+
 export async function sendLoginCode(email: string, username: string): Promise<void> {
   // The email carries a magic link back to the app (and, with a custom SMTP
   // template, also a 6-digit code — both complete the same sign-in).
-  const emailRedirectTo =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${process.env.EXPO_BASE_URL ?? ''}/`
-      : undefined;
   const { error } = await sb().auth.signInWithOtp({
     email,
-    options: { data: { username }, shouldCreateUser: true, emailRedirectTo },
+    options: { data: { username }, shouldCreateUser: true, emailRedirectTo: appRedirectUrl() },
   });
   if (error) throw error;
 }

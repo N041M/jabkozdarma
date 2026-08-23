@@ -3,6 +3,7 @@ import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +30,7 @@ export default function ProfileScreen() {
   const signIn = useStore((s) => s.signIn);
   const signOut = useStore((s) => s.signOut);
   const sendCode = useStore((s) => s.sendCode);
+  const signInWithGoogle = useStore((s) => s.signInWithGoogle);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -99,6 +101,33 @@ export default function ProfileScreen() {
             </>
           ) : authStep === 'form' ? (
             <>
+              {Platform.OS === 'web' && (
+                <>
+                  <Pressable
+                    onPress={async () => {
+                      setAuthError(null);
+                      try {
+                        await signInWithGoogle();
+                      } catch {
+                        setAuthError(t2('googleError'));
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.googleButton,
+                      { backgroundColor: t.surface, borderColor: t.line, opacity: pressed ? 0.8 : 1 },
+                    ]}>
+                    <Ionicons name="logo-google" size={18} color={t.ink} />
+                    <Text style={{ color: t.ink, fontWeight: '700', fontSize: 15 }}>
+                      {t2('continueWithGoogle')}
+                    </Text>
+                  </Pressable>
+                  <View style={styles.dividerRow}>
+                    <View style={[styles.dividerLine, { backgroundColor: t.line }]} />
+                    <Text style={{ color: t.muted, fontSize: 12 }}>{t2('orEmail')}</Text>
+                    <View style={[styles.dividerLine, { backgroundColor: t.line }]} />
+                  </View>
+                </>
+              )}
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -237,6 +266,17 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 18, paddingBottom: 48, maxWidth: 720, width: '100%', alignSelf: 'center' },
   card: { borderWidth: 1, borderRadius: 16, padding: 20, gap: 12 },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dividerLine: { flex: 1, height: 1 },
   title: { fontSize: 22, fontWeight: '800' },
   input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 14 },

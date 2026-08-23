@@ -51,6 +51,57 @@ rate limit (a few emails per hour) **and** unlocks editable templates — add
 `{{ .Token }}` to the Magic Link template and the app's "code from the email"
 field starts working as an alternative to tapping the link.
 
+## 3b. Google sign-in (recommended — no emails at all)
+
+One tap, no inbox round-trip, and it sidesteps email rate limits entirely.
+
+**In Google Cloud Console** (console.cloud.google.com):
+
+1. Create a project named `jabkozdarma` (top-left project picker → New project).
+2. **APIs & Services → OAuth consent screen** → User type **External** → fill in
+   app name `JabkoZdarma`, your email for both support and developer contact →
+   Save. Leave scopes empty (email + profile are included by default).
+   While it stays in **Testing**, only accounts listed under "Test users" can
+   sign in — hit **Publish app** when you want it open to everyone. Basic
+   email/profile scopes don't require Google's verification review.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**
+   → Application type **Web application**:
+   - **Authorized JavaScript origins**: `https://n041m.github.io` and
+     `http://localhost:8081`
+   - **Authorized redirect URI** — this is Supabase's callback, *not* the app URL,
+     and getting it wrong is the usual failure:
+     `https://lpipnyievajqvapcpcoy.supabase.co/auth/v1/callback`
+4. Copy the **Client ID** and **Client secret**.
+
+**In Supabase**: **Authentication → Sign In / Providers → Google** → enable it,
+paste the client ID and secret → Save. The "Continue with Google" button in the
+app starts working immediately; no redeploy needed.
+
+## 3c. Custom SMTP with Brevo (lifts the email rate limit)
+
+Supabase's built-in mailer allows only a couple of emails per hour and its
+templates are locked. Brevo's free tier (~300/day) works without owning a
+domain — it verifies a single sender address instead.
+
+1. Create a free account at brevo.com.
+2. **Senders, Domains & Dedicated IPs → Senders → Add a sender**: your name and
+   the address the app should send from. Brevo emails you a confirmation link —
+   click it, or nothing will send.
+3. **SMTP & API → SMTP tab** → note the server (`smtp-relay.brevo.com`), port
+   `587`, and your **SMTP login**, then **Generate a new SMTP key** and copy it.
+4. **Supabase → Authentication → Emails → SMTP Settings** → enable custom SMTP:
+   - Sender email: the address you verified in step 2
+   - Sender name: `JabkoZdarma`
+   - Host: `smtp-relay.brevo.com`   Port: `587`
+   - Username: your Brevo SMTP login   Password: the SMTP key
+5. **Authentication → Rate Limits** → raise "Emails per hour" (100 is plenty).
+
+Two things follow from this: email templates become editable (add `{{ .Token }}`
+to the Magic Link template if you want code-based login back), and deliverability
+depends on the sender address. A free webmail sender can't be DKIM-signed, so
+some mail will land in spam — for launch, register a domain and verify that
+instead.
+
 ## 4. Copy the two values
 
 **Project Settings (gear) → API**:
@@ -98,7 +149,10 @@ A fresh database is **empty** — the Prague demo pins you saw are local-mode-on
 | --- | --- |
 | Link in email says "requested path is invalid" | Step 3 skipped — the app URL isn't in Redirect URLs |
 | Tapping the link doesn't sign you in | Link was opened in a different browser than the app — open the email on the same device/browser |
-| "email rate limit exceeded" | Built-in mailer cap — wait an hour or set custom SMTP |
+| "email rate limit exceeded" | Built-in mailer cap (a couple per hour) — wait, or set up Brevo (3c) |
+| Google button → "redirect_uri_mismatch" | The Cloud Console redirect URI must be the Supabase `/auth/v1/callback` URL, not the app URL |
+| Google sign-in says the app is blocked | OAuth consent screen still in Testing — add the account under Test users, or Publish the app |
+| Brevo mail never arrives | Sender address not confirmed (Brevo sends a verification link), or it landed in spam |
 | App still says "Local mode" | Env vars not baked in — restart dev server / re-run deploy after setting variables |
 | Map is empty after connecting | Expected on a fresh DB — sign in and add a tree, or run `seed.sql` |
 | Schema run fails midway | Project wasn't fresh, or partial rerun — don't re-run; get a targeted cleanup script |

@@ -28,6 +28,24 @@ function logSyncError(op: string) {
   return (err: unknown) => console.error(`[sync] ${op} failed:`, err);
 }
 
+/**
+ * Best display name for a signed-in user: what they typed when signing up,
+ * else what the OAuth provider told us, else the email's local part.
+ */
+function preferredUsername(user: {
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+}): string {
+  const meta = user.user_metadata ?? {};
+  const candidate =
+    (meta.username as string) ||
+    (meta.full_name as string) ||
+    (meta.name as string) ||
+    user.email?.split('@')[0] ||
+    '';
+  return candidate.trim().replace(/\s+/g, ' ').slice(0, 30);
+}
+
 export interface NewTreeInput {
   lat: number;
   lng: number;
@@ -60,6 +78,7 @@ interface AppState {
   initBackend: () => void;
   signIn: (username: string) => void; // local mode only
   sendCode: (email: string, username: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => void;
   addTree: (input: NewTreeInput) => Tree | null;
   updateTree: (id: string, patch: Partial<NewTreeInput>) => void;
@@ -95,13 +114,16 @@ export const useStore = create<AppState>()(
           )
           .catch(logSyncError('hydrate'));
 
-        const applySession = (session: { user: { id: string; user_metadata?: Record<string, unknown> } } | null) => {
+        const applySession = (
+          session: {
+            user: { id: string; email?: string; user_metadata?: Record<string, unknown> };
+          } | null
+        ) => {
           if (!session) {
             set({ profile: null, favorites: [] });
             return;
           }
-          const desired = (session.user.user_metadata?.username as string | undefined) ?? '';
-          db.ensureProfile(session.user.id, desired)
+          db.ensureProfile(session.user.id, preferredUsername(session.user))
             .then((profile) => {
               set((s) => ({
                 profile,
@@ -146,6 +168,10 @@ export const useStore = create<AppState>()(
       sendCode: async (email, username) => {
         await db.sendLoginCode(email.trim(), username.trim());
         // the emailed link completes sign-in; onAuthStateChange loads the profile
+      },
+
+      signInWithGoogle: async () => {
+        await db.signInWithGoogle(); // navigates away; the return trip carries the session
       },
 
       signOut: () => {
