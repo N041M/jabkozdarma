@@ -146,6 +146,28 @@ A fresh database is **empty** — the Prague demo pins you saw are local-mode-on
    [`seed.sql`](seed.sql) in the SQL Editor **after** that first sign-in (it
    attaches the pins to the first profile in the database).
 
+## Migrations to run on an existing database
+
+Run these once each in the SQL Editor (both are safe to re-run):
+
+- [`migration-001-fixes.sql`](migration-001-fixes.sql) — viewport RPC fix, and the
+  policy that lets people delete their own pins.
+- [`migration-002-gdpr.sql`](migration-002-gdpr.sql) — `delete_my_account()`, which
+  the app's "Delete my account" button calls. Without it that button fails.
+
+## GDPR checklist
+
+The app ships a privacy notice (Profile → "Privacy & your data"), data export and
+account deletion. Two things only you can confirm:
+
+1. **Project region must be in the EU.** Check Project Settings → General. The
+   privacy notice states data is hosted in the EU; if your project is elsewhere,
+   either move it (create a new EU project while the data is small) or correct
+   the text in `src/lib/privacy-text.ts`.
+2. **Add a contact address.** The notice's Contact section currently says "contact
+   the operator" with no address — GDPR expects a real one. Edit the last section
+   of `src/lib/privacy-text.ts`.
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |
