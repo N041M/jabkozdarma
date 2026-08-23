@@ -127,6 +127,10 @@ const en = {
   localMode: 'Local mode — your data stays on this device until the backend is connected.',
   backendConnected: 'Connected to Supabase',
 
+  // language
+  languageLabel: 'Language',
+  langAuto: 'Device',
+
   // error recovery
   errorTitle: 'Something went wrong',
   errorRetry: 'Try again',
@@ -255,6 +259,9 @@ const cs: typeof en = {
   localMode: 'Místní režim — data zůstávají v tomto zařízení, dokud není připojen backend.',
   backendConnected: 'Připojeno k Supabase',
 
+  languageLabel: 'Jazyk',
+  langAuto: 'Podle zařízení',
+
   errorTitle: 'Něco se pokazilo',
   errorRetry: 'Zkusit znovu',
   errorReset: 'Smazat místní data',
@@ -269,16 +276,52 @@ const cs: typeof en = {
   months: ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'],
 };
 
-function detectLang(): 'cs' | 'en' {
+export type Lang = 'cs' | 'en';
+/** 'auto' follows the device language. */
+export type LangPreference = Lang | 'auto';
+
+const LANG_KEY = 'jabkozdarma-lang';
+
+function isLang(v: unknown): v is Lang {
+  return v === 'cs' || v === 'en';
+}
+
+/** Saved preference, read synchronously so the first render is correct. */
+export function getLangPreference(): LangPreference {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const stored = window.localStorage?.getItem(LANG_KEY);
+    if (isLang(stored)) return stored;
+  }
+  return 'auto';
+}
+
+function detectLang(): Lang {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // ?lang= wins, so a shared link can pin the language
     const param = new URLSearchParams(window.location.search).get('lang');
-    if (param === 'cs' || param === 'en') return param;
+    if (isLang(param)) return param;
+    const stored = window.localStorage?.getItem(LANG_KEY);
+    if (isLang(stored)) return stored;
   }
   return getLocales()[0]?.languageCode === 'cs' ? 'cs' : 'en';
 }
 
-export const lang: 'cs' | 'en' = detectLang();
+export const lang: Lang = detectLang();
 const dict = lang === 'cs' ? cs : en;
+
+/**
+ * Save the choice and re-open the app so every label is rebuilt. Strings are
+ * resolved once at module load, so a reload is the honest way to apply it.
+ */
+export function setLangPreference(pref: LangPreference): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  if (pref === 'auto') window.localStorage?.removeItem(LANG_KEY);
+  else window.localStorage?.setItem(LANG_KEY, pref);
+  // drop any ?lang= override so the saved choice actually takes effect
+  const url = new URL(window.location.href);
+  url.searchParams.delete('lang');
+  window.location.replace(url.toString());
+}
 
 type StringKey = {
   [K in keyof typeof en]: (typeof en)[K] extends string ? K : never;

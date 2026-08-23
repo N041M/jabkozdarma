@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
-import { t as t2 } from '@/lib/i18n';
+import { getLangPreference, setLangPreference, t as t2 } from '@/lib/i18n';
 import { timeAgo, treeTitle } from '@/lib/labels';
 import { useStore } from '@/lib/store';
 import { isBackendConfigured } from '@/lib/supabase';
@@ -37,6 +37,7 @@ export default function ProfileScreen() {
   const [authStep, setAuthStep] = useState<'form' | 'sent'>('form');
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const langPref = getLangPreference();
 
   const submitEmail = async () => {
     setAuthBusy(true);
@@ -248,6 +249,38 @@ export default function ProfileScreen() {
         </>
       )}
 
+      <View style={[styles.langSection, { borderColor: t.line }]}>
+        <Text style={[styles.label, { color: t.muted }]}>{t2('languageLabel').toUpperCase()}</Text>
+        <View style={styles.chipRow}>
+          {(
+            [
+              ['cs', 'Čeština'],
+              ['en', 'English'],
+              ['auto', t2('langAuto')],
+            ] as const
+          ).map(([value, label]) => {
+            const active = langPref === value;
+            return (
+              <Pressable
+                key={value}
+                onPress={() => setLangPreference(value)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? t.green : t.surface,
+                    borderColor: active ? t.green : t.line,
+                  },
+                ]}>
+                <Text
+                  style={{ color: active ? '#FFF' : t.ink, fontSize: 13, fontWeight: '600' }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
       <View style={[styles.backendRow, { borderColor: t.line }]}>
         <View
           style={[
@@ -286,6 +319,10 @@ const styles = StyleSheet.create({
   listSection: { gap: 8 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   link: { fontSize: 14, fontWeight: '600' },
+  langSection: { borderTopWidth: 1, paddingTop: 16, marginTop: 6, gap: 8 },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
   backendRow: {
     flexDirection: 'row',
     alignItems: 'center',
