@@ -15,6 +15,8 @@ const en = {
   addTreeTitle: 'Add a tree',
 
   // map screen
+  viewFlat: 'Switch to the plain top-down map',
+  viewGo: 'Switch to the 3D view',
   legendRipe: 'Ripe now',
   legendUnripe: 'Unripe',
   legendNone: 'No report',
@@ -139,6 +141,8 @@ const cs: typeof en = {
   appleTree: 'Jabloň',
   addTreeTitle: 'Přidat strom',
 
+  viewFlat: 'Přepnout na jednoduchou mapu shora',
+  viewGo: 'Přepnout na 3D zobrazení',
   legendRipe: 'Zralé teď',
   legendUnripe: 'Nezralé',
   legendNone: 'Bez hlášení',

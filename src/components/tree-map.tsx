@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import MapView, { Circle, Marker, Polyline } from 'react-native-maps';
 
 import { pinColor } from '@/lib/labels';
+import { MODE_PITCH } from '@/lib/map-style';
 import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
 
 export default function TreeMap({
@@ -15,8 +16,14 @@ export default function TreeMap({
   route,
   userLocation,
   placeRadiusM,
+  mode = 'go',
 }: TreeMapProps) {
   const mapRef = useRef<MapView>(null);
+
+  // Native (v2) has no custom style yet; the mode just controls the tilt.
+  useEffect(() => {
+    mapRef.current?.animateCamera({ pitch: MODE_PITCH[mode] }, { duration: 400 });
+  }, [mode]);
 
   useEffect(() => {
     if (flyTo) {

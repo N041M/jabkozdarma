@@ -1,3 +1,4 @@
+import type { MapMode } from '@/lib/map-style';
 import type { LatLng } from '@/lib/routing';
 import type { Tree, TreeReport } from '@/lib/types';
 
@@ -20,6 +21,8 @@ export interface TreeMapProps {
   userLocation?: LatLng | null;
   /** While placing, shade the radius the user is allowed to pin inside. */
   placeRadiusM?: number | null;
+  /** 'go' = tilted 3D world, 'flat' = plain top-down map. */
+  mode?: MapMode;
 }
 
 /** Ring of coordinates approximating a circle, for the placement radius. */

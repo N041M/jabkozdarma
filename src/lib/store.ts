@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import * as db from './db';
+import type { MapMode } from './map-style';
 import type { LatLng } from './routing';
 import { seedProfile, seedReports, seedTrees } from './seed';
 import { isBackendConfigured, supabase } from './supabase';
@@ -74,6 +75,7 @@ interface AppState {
   favorites: string[]; // tree ids
   activeRoute: ActiveRoute | null; // transient, not persisted
   hydrated: boolean; // backend snapshot loaded
+  mapMode: MapMode;
 
   initBackend: () => void;
   signIn: (username: string) => void; // local mode only
@@ -88,6 +90,7 @@ interface AppState {
   toggleFavorite: (treeId: string) => void;
   setRoute: (route: ActiveRoute) => void;
   clearRoute: () => void;
+  setMapMode: (mode: MapMode) => void;
 }
 
 let backendInitialized = false;
@@ -103,6 +106,7 @@ export const useStore = create<AppState>()(
       favorites: [],
       activeRoute: null,
       hydrated: !isBackendConfigured,
+      mapMode: 'go',
 
       initBackend: () => {
         if (!supabase || backendInitialized) return;
@@ -292,6 +296,7 @@ export const useStore = create<AppState>()(
 
       setRoute: (route) => set({ activeRoute: route }),
       clearRoute: () => set({ activeRoute: null }),
+      setMapMode: (mode) => set({ mapMode: mode }),
     }),
     {
       name: 'jabkozdarma-v1',
@@ -304,6 +309,7 @@ export const useStore = create<AppState>()(
         reports: s.reports,
         flags: s.flags,
         favorites: s.favorites,
+        mapMode: s.mapMode,
       }),
       // Heals older persisted state that could brick the app: trees with
       // invalid coordinates crash the map, and full-size camera photos

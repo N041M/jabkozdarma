@@ -25,6 +25,8 @@ export default function MapScreen() {
   const profile = useStore((s) => s.profile);
   const activeRoute = useStore((s) => s.activeRoute);
   const clearRoute = useStore((s) => s.clearRoute);
+  const mapMode = useStore((s) => s.mapMode);
+  const setMapMode = useStore((s) => s.setMapMode);
 
   const [placing, setPlacing] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; key: number } | null>(null);
@@ -150,6 +152,7 @@ export default function MapScreen() {
         route={activeRoute}
         userLocation={userLoc}
         placeRadiusM={placing ? PLACE_RADIUS_M : null}
+        mode={mapMode}
       />
 
       {activeRoute && !placing && (
@@ -215,6 +218,16 @@ export default function MapScreen() {
       )}
 
       <View style={[styles.fabs, { bottom: insets.bottom + 24 }]}>
+        <Pressable
+          onPress={() => setMapMode(mapMode === 'go' ? 'flat' : 'go')}
+          accessibilityLabel={mapMode === 'go' ? t2('viewFlat') : t2('viewGo')}
+          style={({ pressed }) => [
+            styles.fab,
+            styles.fabSmall,
+            { backgroundColor: t.surface, opacity: pressed ? 0.8 : 1 },
+          ]}>
+          <Ionicons name={mapMode === 'go' ? 'map-outline' : 'cube-outline'} size={20} color={t.green} />
+        </Pressable>
         <Pressable
           onPress={locateMe}
           style={({ pressed }) => [

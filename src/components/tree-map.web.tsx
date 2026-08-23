@@ -3,7 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 
 import { latestReport } from '@/lib/labels';
-import { GO_STYLE } from '@/lib/map-style';
+import { MODE_PITCH, styleFor } from '@/lib/map-style';
 import { playerSpriteSvg } from '@/lib/player-sprite';
 import { treeSpriteSvg } from '@/lib/tree-sprite';
 import type { Tree } from '@/lib/types';
@@ -24,6 +24,7 @@ export default function TreeMap({
   route,
   userLocation,
   placeRadiusM,
+  mode = 'go',
 }: TreeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -52,12 +53,13 @@ export default function TreeMap({
     const cam = cameraRef.current;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: GO_STYLE,
+      style: styleFor(mode),
       center: cam?.center ?? [PRAGUE.lng, PRAGUE.lat],
       zoom: cam?.zoom ?? 11.5,
-      pitch: cam?.pitch ?? 55,
+      // tilt follows the mode, so switching actually looks different
+      pitch: MODE_PITCH[mode],
       bearing: cam?.bearing ?? 0,
-      maxPitch: 70,
+      maxPitch: mode === 'flat' ? 0 : 70,
       attributionControl: { compact: true },
     });
     map.on('moveend', () => {
@@ -124,7 +126,7 @@ export default function TreeMap({
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapEpoch]);
+  }, [mapEpoch, mode]);
 
   // Re-render markers whenever trees or reports change.
   useEffect(() => {
@@ -149,7 +151,7 @@ export default function TreeMap({
         .setLngLat([tree.lng, tree.lat])
         .addTo(map);
     });
-  }, [trees, reports, mapEpoch]);
+  }, [trees, reports, mapEpoch, mode]);
 
   useEffect(() => {
     if (flyTo) mapRef.current?.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: 14, duration: 800 });
@@ -174,7 +176,7 @@ export default function TreeMap({
     } else {
       playerRef.current.setLngLat([userLocation.lng, userLocation.lat]);
     }
-  }, [userLocation, mapEpoch]);
+  }, [userLocation, mapEpoch, mode]);
 
   // Shaded circle showing how far from yourself you may drop a pin.
   useEffect(() => {
@@ -219,7 +221,7 @@ export default function TreeMap({
     return () => {
       map.off('load', apply);
     };
-  }, [userLocation, placeRadiusM, mapEpoch]);
+  }, [userLocation, placeRadiusM, mapEpoch, mode]);
 
   // Draw / clear the walking route as a GeoJSON line layer.
   useEffect(() => {
@@ -261,12 +263,12 @@ export default function TreeMap({
     return () => {
       map.off('load', apply);
     };
-  }, [route, mapEpoch]);
+  }, [route, mapEpoch, mode]);
 
   useEffect(() => {
     const canvas = mapRef.current?.getCanvas();
     if (canvas) canvas.style.cursor = placing ? 'crosshair' : '';
-  }, [placing, mapEpoch]);
+  }, [placing, mapEpoch, mode]);
 
   return <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />;
 }
