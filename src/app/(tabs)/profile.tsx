@@ -95,14 +95,6 @@ export default function ProfileScreen() {
           ) : authStep === 'form' ? (
             <>
               <TextInput
-                value={username}
-                onChangeText={setUsername}
-                placeholder={t2('usernamePlaceholder')}
-                placeholderTextColor={t.muted}
-                autoCapitalize="none"
-                style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
-              />
-              <TextInput
                 value={email}
                 onChangeText={setEmail}
                 placeholder={t2('emailPlaceholder')}
@@ -113,10 +105,19 @@ export default function ProfileScreen() {
                 style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
                 onSubmitEditing={submitEmail}
               />
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder={t2('usernamePlaceholder')}
+                placeholderTextColor={t.muted}
+                autoCapitalize="none"
+                style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
+              />
+              <Text style={{ color: t.muted, fontSize: 12 }}>{t2('usernameHint')}</Text>
               <Button
                 label={authBusy ? t2('sendingCode') : t2('sendCode')}
                 onPress={submitEmail}
-                disabled={authBusy || !username.trim() || !email.includes('@')}
+                disabled={authBusy || !email.includes('@')}
               />
             </>
           ) : (

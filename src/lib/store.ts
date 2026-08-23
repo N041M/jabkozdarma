@@ -63,6 +63,7 @@ interface AppState {
   signOut: () => void;
   addTree: (input: NewTreeInput) => Tree | null;
   updateTree: (id: string, patch: Partial<NewTreeInput>) => void;
+  removeTree: (id: string) => void;
   addReport: (treeId: string, state: RipenessState, note: string | null) => void;
   flagTree: (treeId: string, reason: FlagReason) => void;
   toggleFavorite: (treeId: string) => void;
@@ -94,7 +95,7 @@ export const useStore = create<AppState>()(
           )
           .catch(logSyncError('hydrate'));
 
-        supabase.auth.onAuthStateChange((_event, session) => {
+        const applySession = (session: { user: { id: string; user_metadata?: Record<string, unknown> } } | null) => {
           if (!session) {
             set({ profile: null, favorites: [] });
             return;
@@ -112,7 +113,14 @@ export const useStore = create<AppState>()(
             })
             .then((favorites) => set({ favorites }))
             .catch(logSyncError('auth/profile'));
-        });
+        };
+
+        // Restore a persisted session immediately, then track changes.
+        supabase.auth
+          .getSession()
+          .then(({ data }) => applySession(data.session))
+          .catch(logSyncError('getSession'));
+        supabase.auth.onAuthStateChange((_event, session) => applySession(session));
       },
 
       signIn: (username) => {
@@ -192,6 +200,19 @@ export const useStore = create<AppState>()(
               .catch(logSyncError('uploadPhoto'));
           }
         }
+      },
+
+      removeTree: (id) => {
+        const profile = get().profile;
+        const tree = get().trees.find((t) => t.id === id);
+        if (!profile || !tree || tree.createdBy !== profile.id) return;
+        set((s) => ({
+          trees: s.trees.filter((t) => t.id !== id),
+          reports: s.reports.filter((r) => r.treeId !== id),
+          flags: s.flags.filter((f) => f.treeId !== id),
+          favorites: s.favorites.filter((fid) => fid !== id),
+        }));
+        if (isBackendConfigured) db.deleteTree(id).catch(logSyncError('removeTree'));
       },
 
       addReport: (treeId, state, note) => {

@@ -157,6 +157,12 @@ export async function uploadTreePhoto(
   return photoUrl(path);
 }
 
+export async function deleteTree(id: string): Promise<void> {
+  // reports/photos/flags/favorites cascade via their foreign keys
+  const { error } = await sb().from('trees').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function insertReport(report: TreeReport): Promise<void> {
   const { error } = await sb().from('reports').insert({
     id: report.id,

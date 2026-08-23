@@ -34,11 +34,13 @@ export default function TreeDetail() {
   const addReport = useStore((s) => s.addReport);
   const flagTree = useStore((s) => s.flagTree);
   const toggleFavorite = useStore((s) => s.toggleFavorite);
+  const removeTree = useStore((s) => s.removeTree);
   const setRoute = useStore((s) => s.setRoute);
 
   const [showFlags, setShowFlags] = useState(false);
   const [flagged, setFlagged] = useState<FlagReason | null>(null);
   const [routing, setRouting] = useState<'idle' | 'busy' | 'error'>('idle');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const treeReports = useMemo(
     () =>
@@ -229,6 +231,26 @@ export default function TreeDetail() {
             </Pressable>
           )}
         </View>
+
+        {profile?.id === tree.createdBy && (
+          <View style={[styles.section, { borderTopColor: t.line }]}>
+            <Pressable
+              onPress={() => {
+                if (!confirmDelete) {
+                  setConfirmDelete(true);
+                  return;
+                }
+                removeTree(tree.id);
+                if (router.canGoBack()) router.back();
+                else router.replace('/');
+              }}
+              hitSlop={8}>
+              <Text style={{ color: t.red, fontSize: 14, fontWeight: '700' }}>
+                {confirmDelete ? t2('deleteConfirm') : t2('deleteTree')}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </>
   );

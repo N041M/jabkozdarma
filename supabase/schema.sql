@@ -159,6 +159,8 @@ create policy "users insert own trees" on trees
   for insert with check (auth.uid() = created_by);
 create policy "users update own trees" on trees
   for update using (auth.uid() = created_by);
+create policy "users delete own trees" on trees
+  for delete using (auth.uid() = created_by);
 
 create policy "users insert own photos" on tree_photos
   for insert with check (auth.uid() = user_id);

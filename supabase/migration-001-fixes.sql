@@ -1,6 +1,13 @@
--- Fix: trees_in_bbox failed on very wide viewports ("Antipodal edge detected")
--- because geography envelopes can't span 180°+ of longitude. Compare in
--- geometry space instead (and index it). Safe to run on a live database.
+-- Migration 001 — run once in the SQL Editor on a database created before
+-- these fixes landed in schema.sql. Safe to run on a live database.
+--
+-- 1. trees_in_bbox failed on very wide viewports ("Antipodal edge detected")
+--    because geography envelopes can't span 180°+ of longitude. Compare in
+--    geometry space instead (and index it).
+-- 2. Owners can delete their own pins.
+
+create policy "users delete own trees" on trees
+  for delete using (auth.uid() = created_by);
 
 create index if not exists trees_location_geom_idx
   on trees using gist ((location::geometry));

@@ -59,6 +59,8 @@ const en = {
   flagThanks: 'Thanks — flagged as “{reason}”. A moderator will take a look.',
   reportProblem: 'Report a problem with this pin',
   signInToFlag: 'Sign in to report a problem',
+  deleteTree: 'Delete this pin',
+  deleteConfirm: 'Tap again to delete permanently',
 
   // add/edit form
   duplicateWarning:
@@ -81,7 +83,8 @@ const en = {
   joinTitle: 'Join in',
   joinCopy:
     'Browsing the map is free for everyone. Create a profile to add trees, report ripeness, and save favorites.',
-  usernamePlaceholder: 'Pick a username',
+  usernamePlaceholder: 'Username',
+  usernameHint: 'Username is only needed the first time — returning pickers just enter their email.',
   emailPlaceholder: 'Your email',
   createProfile: 'Create profile',
   sendCode: 'Email me a sign-in link',
@@ -168,6 +171,8 @@ const cs: typeof en = {
   flagThanks: 'Díky — nahlášeno jako „{reason}“. Moderátor se na to podívá.',
   reportProblem: 'Nahlásit problém s tímto špendlíkem',
   signInToFlag: 'Pro nahlášení problému se přihlaste',
+  deleteTree: 'Smazat tento špendlík',
+  deleteConfirm: 'Klepněte znovu pro trvalé smazání',
 
   duplicateWarning:
     'V okruhu 25 m {count, plural, one {už jeden špendlík je} other {už # špendlíky jsou}}. Než strom uložíte, zkontrolujte, že nejde o ten samý.',
@@ -188,7 +193,8 @@ const cs: typeof en = {
   joinTitle: 'Přidejte se',
   joinCopy:
     'Procházení mapy je zdarma pro všechny. Vytvořte si profil a můžete přidávat stromy, hlásit zralost a ukládat oblíbené.',
-  usernamePlaceholder: 'Zvolte si uživatelské jméno',
+  usernamePlaceholder: 'Uživatelské jméno',
+  usernameHint: 'Jméno je potřeba jen poprvé — kdo se vrací, zadá jen e-mail.',
   emailPlaceholder: 'Váš e-mail',
   createProfile: 'Vytvořit profil',
   sendCode: 'Poslat přihlašovací odkaz',
