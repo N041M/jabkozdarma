@@ -22,6 +22,27 @@ import type { AccessType } from '@/lib/types';
 
 const ACCESS_TYPES: AccessType[] = ['public', 'roadside', 'ask_owner'];
 
+/** Web-only: resize a picked image down to a phone-friendly JPEG data URI. */
+async function downscaleImage(uri: string, maxDim: number, quality: number): Promise<string> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new window.Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = uri;
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    if (scale === 1 && uri.length < 400_000) return uri;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch {
+    return uri; // worst case keep the original
+  }
+}
+
 const SEASONS: { label: string; start: number | null; end: number | null }[] = [
   { label: t2('notSure'), start: null, end: null },
   ...[7, 8, 9, 10].map((m) => ({
@@ -60,17 +81,20 @@ export default function AddTree() {
   const pickPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.4,
+      quality: 0.7,
       base64: Platform.OS === 'web',
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    // On web, blob: URIs die on reload — persist a compact data URI instead.
-    setPhotoUri(
-      Platform.OS === 'web' && asset.base64
-        ? `data:image/jpeg;base64,${asset.base64}`
-        : asset.uri
-    );
+    if (Platform.OS !== 'web') {
+      setPhotoUri(asset.uri);
+      return;
+    }
+    // Web: downscale before it goes anywhere. A raw phone photo as a
+    // multi-MB data URI would blow the localStorage quota and freeze the
+    // app re-serializing state on every change.
+    const source = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+    setPhotoUri(await downscaleImage(source, 1280, 0.72));
   };
 
   const save = () => {

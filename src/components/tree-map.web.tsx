@@ -1,6 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { latestReport } from '@/lib/labels';
 import { GO_STYLE } from '@/lib/map-style';
@@ -25,6 +25,9 @@ export default function TreeMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  // Bumped when the WebGL context dies (mobile GPU pressure, backgrounding);
+  // recreates the whole map instead of leaving a dead green canvas.
+  const [mapEpoch, setMapEpoch] = useState(0);
 
   // The click handler is bound once, so live values go through refs.
   const placingRef = useRef(placing);
@@ -51,6 +54,11 @@ export default function TreeMap({
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     }
     map.on('error', (e) => console.error('[map error]', e.error));
+    map.getCanvas().addEventListener('webglcontextlost', (ev) => {
+      ev.preventDefault();
+      console.warn('[map] WebGL context lost — rebuilding map');
+      setTimeout(() => setMapEpoch((n) => n + 1), 250);
+    });
     if (process.env.NODE_ENV !== 'production') (window as unknown as { __map?: unknown }).__map = map;
     map.on('click', (e: maplibregl.MapMouseEvent) => {
       if (placingRef.current) onPressMapRef.current(e.lngLat.lat, e.lngLat.lng);
@@ -67,7 +75,8 @@ export default function TreeMap({
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapEpoch]);
 
   // Re-render markers whenever trees or reports change.
   useEffect(() => {
@@ -92,7 +101,7 @@ export default function TreeMap({
         .setLngLat([tree.lng, tree.lat])
         .addTo(map);
     });
-  }, [trees, reports]);
+  }, [trees, reports, mapEpoch]);
 
   useEffect(() => {
     if (flyTo) mapRef.current?.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: 14, duration: 800 });
@@ -138,12 +147,12 @@ export default function TreeMap({
     return () => {
       map.off('load', apply);
     };
-  }, [route]);
+  }, [route, mapEpoch]);
 
   useEffect(() => {
     const canvas = mapRef.current?.getCanvas();
     if (canvas) canvas.style.cursor = placing ? 'crosshair' : '';
-  }, [placing]);
+  }, [placing, mapEpoch]);
 
   return <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />;
 }

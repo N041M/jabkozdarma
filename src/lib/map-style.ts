@@ -131,19 +131,31 @@ export const GO_STYLE: StyleSpecification = {
         'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 8, 1.5, 18, 30],
       },
     },
-    // GO's pale 3D building blocks
+    // GO's pale 3D building blocks. Kept cheap for mobile GPUs: appear later,
+    // fully opaque (transparent extrusions force expensive sorting), heights
+    // clamped so bad data can't create skyscraper geometry.
     {
       id: 'building-3d',
       type: 'fill-extrusion',
       source: 'omt',
       'source-layer': 'building',
-      minzoom: 13.5,
+      minzoom: 15,
       paint: {
         'fill-extrusion-color': '#DFE9EA',
-        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
-        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-        'fill-extrusion-opacity': 0.92,
+        'fill-extrusion-height': ['min', 80, ['coalesce', ['get', 'render_height'], 8]],
+        'fill-extrusion-base': ['min', 80, ['coalesce', ['get', 'render_min_height'], 0]],
+        'fill-extrusion-opacity': 1,
       },
+    },
+    // flat footprints bridge the gap before extrusions switch on
+    {
+      id: 'building-flat',
+      type: 'fill',
+      source: 'omt',
+      'source-layer': 'building',
+      minzoom: 13,
+      maxzoom: 15,
+      paint: { 'fill-color': '#DFE9EA', 'fill-opacity': 0.85 },
     },
     // sparse labels: cities and towns only
     {

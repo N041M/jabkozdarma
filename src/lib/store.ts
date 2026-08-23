@@ -248,6 +248,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'jabkozdarma-v1',
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         profile: s.profile,
@@ -257,6 +258,22 @@ export const useStore = create<AppState>()(
         flags: s.flags,
         favorites: s.favorites,
       }),
+      // Heals older persisted state that could brick the app: trees with
+      // invalid coordinates crash the map, and full-size camera photos
+      // stored as multi-MB data URIs freeze serialization on every change.
+      migrate: (persisted) => {
+        const s = persisted as Partial<AppState>;
+        if (Array.isArray(s.trees)) {
+          s.trees = s.trees
+            .filter((t) => Number.isFinite(t?.lat) && Number.isFinite(t?.lng))
+            .map((t) =>
+              t.photoUri && t.photoUri.startsWith('data:') && t.photoUri.length > 400_000
+                ? { ...t, photoUri: null }
+                : t
+            );
+        }
+        return s;
+      },
     }
   )
 );
