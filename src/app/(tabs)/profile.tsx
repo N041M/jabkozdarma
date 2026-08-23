@@ -42,8 +42,13 @@ export default function ProfileScreen() {
     try {
       await sendCode(email, username);
       setAuthStep('sent');
-    } catch {
-      setAuthError(t2('sendError'));
+    } catch (e) {
+      const err = e as { code?: string; status?: number };
+      setAuthError(
+        err?.code === 'over_email_send_rate_limit' || err?.status === 429
+          ? t2('rateLimitError')
+          : t2('sendError')
+      );
     } finally {
       setAuthBusy(false);
     }
