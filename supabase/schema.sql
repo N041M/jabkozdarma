@@ -48,6 +48,8 @@ create table trees (
 );
 
 create index trees_location_idx on trees using gist (location);
+-- bbox queries compare in geometry space (geography can't span 180°+ envelopes)
+create index trees_location_geom_idx on trees using gist ((location::geometry));
 
 -- ---------- photos ----------
 create table tree_photos (
@@ -130,7 +132,7 @@ language sql stable as $$
     limit 1
   ) r on true
   where t.status <> 'gone'
-    and t.location && st_makeenvelope(min_lng, min_lat, max_lng, max_lat, 4326)
+    and t.location::geometry && st_makeenvelope(min_lng, min_lat, max_lng, max_lat, 4326)
   limit 2000;
 $$;
 
