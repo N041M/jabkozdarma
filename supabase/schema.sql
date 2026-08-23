@@ -2,7 +2,9 @@
 -- Run in the Supabase SQL editor of a fresh project, then set
 -- EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.
 
-create extension if not exists postgis;
+-- Install PostGIS outside the API-exposed `public` schema so its system
+-- catalog (spatial_ref_sys) doesn't trip the "RLS disabled in public" linter.
+create extension if not exists postgis with schema extensions;
 
 -- ---------- enums ----------
 create type access_type as enum ('public', 'roadside', 'ask_owner');
@@ -35,7 +37,7 @@ create trigger on_auth_user_created
 -- ---------- trees ----------
 create table trees (
   id uuid primary key default gen_random_uuid(),
-  location geography(point, 4326) not null,
+  location extensions.geography(point, 4326) not null,
   species text not null default 'apple',
   variety text,
   description text,
@@ -114,7 +116,9 @@ returns table (
   latest_state ripeness_state,
   latest_report_at timestamptz
 )
-language sql stable as $$
+language sql stable
+set search_path = public, extensions
+as $$
   select
     t.id,
     st_y(t.location::geometry) as lat,

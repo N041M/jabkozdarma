@@ -85,16 +85,21 @@ export default function AddTree() {
     };
     if (editing) {
       updateTree(editing.id, fields);
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace(`/tree/${editing.id}`);
       return;
     }
-    const tree = addTree({
-      lat: Number(params.lat),
-      lng: Number(params.lng),
-      ...fields,
-    });
+    // Guard against opening this form without map coordinates (deep link,
+    // refresh) — a NaN tree would poison persisted state and crash the map.
+    const lat = Number(params.lat);
+    const lng = Number(params.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      router.replace('/');
+      return;
+    }
+    const tree = addTree({ lat, lng, ...fields });
     if (tree) router.replace(`/tree/${tree.id}`);
-    else router.back();
+    else router.replace('/');
   };
 
   return (

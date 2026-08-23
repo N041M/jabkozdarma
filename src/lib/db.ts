@@ -214,12 +214,6 @@ export async function sendLoginCode(email: string, username: string): Promise<vo
   if (error) throw error;
 }
 
-export async function verifyLoginCode(email: string, code: string): Promise<string> {
-  const { data, error } = await sb().auth.verifyOtp({ email, token: code, type: 'email' });
-  if (error || !data.user) throw error ?? new Error('no user');
-  return data.user.id;
-}
-
 /**
  * Make sure a profile row exists for this user and return it.
  * Handles username collisions by suffixing.

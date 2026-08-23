@@ -60,7 +60,6 @@ interface AppState {
   initBackend: () => void;
   signIn: (username: string) => void; // local mode only
   sendCode: (email: string, username: string) => Promise<void>;
-  verifyCode: (email: string, code: string) => Promise<void>;
   signOut: () => void;
   addTree: (input: NewTreeInput) => Tree | null;
   updateTree: (id: string, patch: Partial<NewTreeInput>) => void;
@@ -138,11 +137,7 @@ export const useStore = create<AppState>()(
 
       sendCode: async (email, username) => {
         await db.sendLoginCode(email.trim(), username.trim());
-      },
-
-      verifyCode: async (email, code) => {
-        await db.verifyLoginCode(email.trim(), code.trim());
-        // onAuthStateChange picks the session up and loads the profile
+        // the emailed link completes sign-in; onAuthStateChange loads the profile
       },
 
       signOut: () => {

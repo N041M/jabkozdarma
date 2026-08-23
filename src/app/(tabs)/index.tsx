@@ -27,7 +27,16 @@ export default function MapScreen() {
   const [placing, setPlacing] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; key: number } | null>(null);
 
-  const visibleTrees = useMemo(() => trees.filter((tree) => tree.status !== 'gone'), [trees]);
+  // Also drop any tree with invalid coordinates — bad persisted data must
+  // degrade to a missing pin, never a crashed map.
+  const visibleTrees = useMemo(
+    () =>
+      trees.filter(
+        (tree) =>
+          tree.status !== 'gone' && Number.isFinite(tree.lat) && Number.isFinite(tree.lng)
+      ),
+    [trees]
+  );
 
   const startAdding = () => {
     if (!profile) {

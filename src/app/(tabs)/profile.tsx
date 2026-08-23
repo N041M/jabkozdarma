@@ -1,7 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
@@ -21,12 +29,10 @@ export default function ProfileScreen() {
   const signIn = useStore((s) => s.signIn);
   const signOut = useStore((s) => s.signOut);
   const sendCode = useStore((s) => s.sendCode);
-  const verifyCode = useStore((s) => s.verifyCode);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [authStep, setAuthStep] = useState<'form' | 'code'>('form');
+  const [authStep, setAuthStep] = useState<'form' | 'sent'>('form');
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -35,22 +41,9 @@ export default function ProfileScreen() {
     setAuthError(null);
     try {
       await sendCode(email, username);
-      setAuthStep('code');
+      setAuthStep('sent');
     } catch {
       setAuthError(t2('sendError'));
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const submitCode = async () => {
-    setAuthBusy(true);
-    setAuthError(null);
-    try {
-      await verifyCode(email, code);
-      // onAuthStateChange fills in the profile
-    } catch {
-      setAuthError(t2('authError'));
     } finally {
       setAuthBusy(false);
     }
@@ -131,23 +124,22 @@ export default function ProfileScreen() {
               <Text style={{ color: t.muted, fontSize: 14, lineHeight: 20 }}>
                 {t2('codeSentTo', { email: email.trim() })}
               </Text>
-              <Text style={{ color: t.muted, fontSize: 12 }}>{t2('codeFallbackHint')}</Text>
-              <TextInput
-                value={code}
-                onChangeText={setCode}
-                placeholder={t2('codePlaceholder')}
-                placeholderTextColor={t.muted}
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                style={[styles.input, { backgroundColor: t.bg, color: t.ink, borderColor: t.line }]}
-                onSubmitEditing={submitCode}
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <ActivityIndicator color={t.green} />
+                <Text style={{ color: t.muted, fontSize: 13 }}>{t2('waitingForLink')}</Text>
+              </View>
               <Button
-                label={authBusy ? t2('verifyingCode') : t2('verifyCode')}
-                onPress={submitCode}
-                disabled={authBusy || code.trim().length < 6}
+                label={authBusy ? t2('sendingCode') : t2('resendLink')}
+                kind="secondary"
+                onPress={submitEmail}
+                disabled={authBusy}
               />
-              <Pressable onPress={() => { setAuthStep('form'); setCode(''); setAuthError(null); }} hitSlop={8}>
+              <Pressable
+                onPress={() => {
+                  setAuthStep('form');
+                  setAuthError(null);
+                }}
+                hitSlop={8}>
                 <Text style={{ color: t.green, fontSize: 13, fontWeight: '600' }}>
                   {t2('changeEmail')}
                 </Text>

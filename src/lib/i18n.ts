@@ -88,11 +88,8 @@ const en = {
   sendingCode: 'Sending…',
   codeSentTo:
     'We emailed a sign-in link to {email}. Open it on this device — the app signs you in automatically.',
-  codeFallbackHint: 'If the email also shows a code, you can type it here instead:',
-  codePlaceholder: 'Code from the email',
-  verifyCode: 'Sign in with code',
-  verifyingCode: 'Checking…',
-  authError: 'That didn’t work — check the code and try again.',
+  waitingForLink: 'Waiting for you to open the link…',
+  resendLink: 'Send the link again',
   sendError: 'Couldn’t send the email — check the address and try again.',
   changeEmail: 'Use a different email',
   localProfileNote:
@@ -107,6 +104,12 @@ const en = {
   signOut: 'Sign out',
   localMode: 'Local mode — your data stays on this device until the backend is connected.',
   backendConnected: 'Connected to Supabase',
+
+  // error recovery
+  errorTitle: 'Something went wrong',
+  errorRetry: 'Try again',
+  errorReset: 'Reset app data',
+  errorResetHint: 'If it keeps happening, resetting clears locally saved data and starts fresh.',
 
   // time
   today: 'today',
@@ -192,11 +195,8 @@ const cs: typeof en = {
   sendingCode: 'Odesílám…',
   codeSentTo:
     'Poslali jsme přihlašovací odkaz na {email}. Otevřete ho na tomto zařízení — aplikace vás přihlásí automaticky.',
-  codeFallbackHint: 'Pokud e-mail obsahuje i kód, můžete ho zadat sem:',
-  codePlaceholder: 'Kód z e-mailu',
-  verifyCode: 'Přihlásit se kódem',
-  verifyingCode: 'Ověřuji…',
-  authError: 'To nevyšlo — zkontrolujte kód a zkuste to znovu.',
+  waitingForLink: 'Čekám na otevření odkazu…',
+  resendLink: 'Poslat odkaz znovu',
   sendError: 'E-mail se nepodařilo odeslat — zkontrolujte adresu a zkuste to znovu.',
   changeEmail: 'Použít jiný e-mail',
   localProfileNote:
@@ -211,6 +211,11 @@ const cs: typeof en = {
   signOut: 'Odhlásit se',
   localMode: 'Místní režim — data zůstávají v tomto zařízení, dokud není připojen backend.',
   backendConnected: 'Připojeno k Supabase',
+
+  errorTitle: 'Něco se pokazilo',
+  errorRetry: 'Zkusit znovu',
+  errorReset: 'Smazat místní data',
+  errorResetHint: 'Pokud se to opakuje, smazání místních dat aplikaci obnoví do čistého stavu.',
 
   today: 'dnes',
   yesterday: 'včera',

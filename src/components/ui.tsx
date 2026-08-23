@@ -1,9 +1,30 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { ripenessColors, useTheme } from '@/constants/theme';
 import { t as t2 } from '@/lib/i18n';
 import { accessLabels, ripenessLabels, timeAgo } from '@/lib/labels';
 import type { AccessType, TreeReport } from '@/lib/types';
+
+/**
+ * Back control that always works: pops history when there is any, otherwise
+ * jumps home. Screens outside the tab bar must never be dead ends — deep
+ * links, refreshes, and the installed PWA (no browser chrome) all land
+ * without navigation history.
+ */
+export function HeaderBack() {
+  const router = useRouter();
+  const t = useTheme();
+  return (
+    <Pressable
+      hitSlop={12}
+      onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+      style={{ paddingHorizontal: 8 }}>
+      <Ionicons name="arrow-back" size={24} color={t.ink} />
+    </Pressable>
+  );
+}
 
 export function AccessBadge({ access }: { access: AccessType }) {
   const t = useTheme();
