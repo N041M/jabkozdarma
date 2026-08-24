@@ -16,7 +16,7 @@ import {
 import { Chip, FieldLabel, ScreenHeader } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
 import { monthShort, t as t2 } from '@/lib/i18n';
-import { accessLabels, speciesLabels } from '@/lib/labels';
+import { accessLabels, pinRejectionLabel, speciesLabels } from '@/lib/labels';
 import { discoveredVarieties } from '@/lib/dex';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
@@ -61,6 +61,7 @@ export default function AddTree() {
     lat?: string;
     lng?: string;
     nearby?: string;
+    accuracy?: string;
     editId?: string;
   }>();
 
@@ -83,6 +84,7 @@ export default function AddTree() {
     return idx === -1 ? 0 : idx;
   });
   const [photoUri, setPhotoUri] = useState<string | null>(editing?.photoUri ?? null);
+  const [refused, setRefused] = useState<string | null>(null);
 
   const nearbyCount = Number(params.nearby ?? 0);
 
@@ -141,11 +143,29 @@ export default function AddTree() {
     const isNewVariety =
       !!named && !known.some((v) => v.toLocaleLowerCase('cs') === named.toLocaleLowerCase('cs'));
 
-    const tree = addTree({ lat, lng, ...fields });
-    if (!tree) {
-      router.replace('/');
+    // `Number('')` is 0, and an empty string is what the map sends when it
+    // has no fix radius to report — so coercing it blind would claim a
+    // perfect zero-metre fix at exactly the moment there is no reading.
+    const accuracy = params.accuracy ? Number(params.accuracy) : NaN;
+    const result = addTree({
+      lat,
+      lng,
+      accuracyM: Number.isFinite(accuracy) ? accuracy : null,
+      ...fields,
+    });
+    if (!result.ok) {
+      // Stay on the form. Every rejection except a missing profile is
+      // something the picker can act on — move a few steps, come back
+      // tomorrow — and throwing the filled-in form away would punish them
+      // for it.
+      if (result.reason === 'no_profile') {
+        router.replace('/');
+        return;
+      }
+      setRefused(pinRejectionLabel(result.reason));
       return;
     }
+    const tree = result.tree;
     // A variety nobody has pinned before is the more interesting news, so it
     // wins the toast; the XP is on the button already.
     if (isNewVariety && named) showToast(t2('toastDex', { name: named }), 'grid');
@@ -172,6 +192,13 @@ export default function AddTree() {
           <Text style={{ color: t.amber, fontSize: 13, flex: 1 }}>
             {t2('duplicateWarning', { count: nearbyCount })}
           </Text>
+        </View>
+      )}
+
+      {refused && (
+        <View style={[styles.warning, { backgroundColor: t.redSoft }]}>
+          <Ionicons name="close-circle" size={18} color={t.red} />
+          <Text style={{ color: t.red, fontSize: 13, flex: 1 }}>{refused}</Text>
         </View>
       )}
 
@@ -271,6 +298,11 @@ export default function AddTree() {
         {!editing && (
           <Text style={{ color: t.muted, fontSize: 12, textAlign: 'center' }}>
             {t2('saveReward')}
+          </Text>
+        )}
+        {!editing && (
+          <Text style={{ color: t.muted, fontSize: 12, textAlign: 'center' }}>
+            {t2('verifyUnverified')}
           </Text>
         )}
       </ScrollView>

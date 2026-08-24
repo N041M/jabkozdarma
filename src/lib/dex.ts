@@ -73,7 +73,12 @@ export function buildDex(discovered: string[]): (DexEntry & { found: boolean })[
 export const DEX_TARGET = DEX_CATALOGUE.length;
 
 /** XP awarded per contribution. Level is one per thousand. */
-export const XP = { report: 15, checkIn: 25, newTree: 40, quest: 150 } as const;
+/**
+ * Confirming pays close to pinning on purpose. A map that rewards adding
+ * four times more than vouching gets a lot of pins and no verification —
+ * and the pins are the half that can be faked.
+ */
+export const XP = { report: 15, checkIn: 25, confirm: 30, newTree: 40, quest: 150 } as const;
 export const XP_PER_LEVEL = 1000;
 /** Ripeness reports needed to clear the weekly quest. */
 export const QUEST_TARGET = 3;

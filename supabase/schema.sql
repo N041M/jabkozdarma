@@ -42,7 +42,16 @@ create table trees (
   variety text,
   description text,
   access access_type not null,
-  status tree_status not null default 'active',
+  -- Every pin starts unverified; only other pickers' confirmations promote
+  -- it. See verification, below, and `src/lib/verification.ts`.
+  status tree_status not null default 'unverified',
+  -- Radius of the fix the pin was placed from. Evidence, not proof.
+  accuracy_m smallint,
+  -- Distinct confirming pickers, author excluded. Trigger-maintained.
+  confirmations smallint not null default 0,
+  -- Active without corroboration: the operator's manual override, and how
+  -- pins that predate the verification rules keep their standing.
+  trusted boolean not null default false,
   season_start smallint check (season_start between 1 and 12),
   season_end smallint check (season_end between 1 and 12),
   created_by uuid not null references profiles (id),
@@ -73,6 +82,20 @@ create table reports (
 );
 
 create index reports_tree_idx on reports (tree_id, created_at desc);
+
+-- ---------- confirmations: one picker vouching for one tree ----------
+create table tree_confirmations (
+  id uuid primary key default gen_random_uuid(),
+  tree_id uuid not null references trees (id) on delete cascade,
+  user_id uuid not null references profiles (id) on delete cascade,
+  distance_m real not null,
+  accuracy_m smallint,
+  created_at timestamptz not null default now(),
+  unique (tree_id, user_id)
+);
+
+create index tree_confirmations_tree_idx on tree_confirmations (tree_id);
+create index tree_confirmations_user_idx on tree_confirmations (user_id, created_at desc);
 
 -- ---------- moderation flags ----------
 create table flags (
@@ -113,6 +136,9 @@ returns table (
   season_end smallint,
   created_by uuid,
   created_at timestamptz,
+  accuracy_m smallint,
+  confirmations smallint,
+  trusted boolean,
   latest_state ripeness_state,
   latest_report_at timestamptz
 )
@@ -125,6 +151,7 @@ as $$
     st_x(t.location::geometry) as lng,
     t.species, t.variety, t.description, t.access, t.status,
     t.season_start, t.season_end, t.created_by, t.created_at,
+    t.accuracy_m, t.confirmations, t.trusted,
     r.state as latest_state,
     r.created_at as latest_report_at
   from trees t
@@ -145,6 +172,7 @@ alter table profiles enable row level security;
 alter table trees enable row level security;
 alter table tree_photos enable row level security;
 alter table reports enable row level security;
+alter table tree_confirmations enable row level security;
 alter table flags enable row level security;
 alter table favorites enable row level security;
 
@@ -153,6 +181,10 @@ create policy "profiles are public" on profiles for select using (true);
 create policy "trees are public" on trees for select using (true);
 create policy "photos are public" on tree_photos for select using (true);
 create policy "reports are public" on reports for select using (true);
+-- "two other people stood here" is the whole point, so counts are public.
+-- Writes go through confirm_tree() only, so distance_m is always measured
+-- by this database rather than asserted by a caller.
+create policy "confirmations are public" on tree_confirmations for select using (true);
 
 -- contributors write their own rows
 create policy "users insert own trees" on trees
@@ -169,6 +201,9 @@ create policy "users delete own photos" on tree_photos
 
 create policy "users insert own reports" on reports
   for insert with check (auth.uid() = user_id);
+
+create policy "users delete own confirmations" on tree_confirmations
+  for delete using (auth.uid() = user_id);
 
 create policy "users insert own flags" on flags
   for insert with check (auth.uid() = user_id);

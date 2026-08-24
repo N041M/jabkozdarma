@@ -26,14 +26,26 @@ That one script creates the following:
 
 - The PostGIS extension
 - Four enums
-- Six tables: `profiles`, `trees`, `tree_photos`, `reports`, `flags`, and `favorites`
+- Seven tables: `profiles`, `trees`, `tree_photos`, `reports`, `tree_confirmations`,
+  `flags`, and `favorites`
 - The trigger that creates a profile when someone signs up
 - The spatial index
 - The `trees_in_bbox` viewport RPC
 - Row-level security policies on every table
 - The public `tree-photos` storage bucket and its policies
 
-To verify the run, go to **Database > Tables** and confirm that all six tables appear.
+To verify the run, go to **Database > Tables** and confirm that all seven tables appear.
+
+### Add the verification rules
+
+`schema.sql` creates the tables, but the rules that decide who may write a pin and
+whether the map trusts it live in
+[`migration-003-verification.sql`](migration-003-verification.sql). Run that file next,
+in a new query. Every project needs it, fresh or not — without it, new pins go live
+unchecked and the tree detail screen can't confirm anything. For what it enforces, see
+[Verification](#verification).
+
+Unlike `schema.sql`, this one is safe to run again.
 
 **Caution:** The script assumes a fresh project, and you can't run it twice.
 `create type` and `create table` both fail if the object already exists. If the script
@@ -173,12 +185,52 @@ A fresh database is empty. The Prague demo pins exist only in local mode.
 
 ## Migrations for an existing database
 
-Run each of these once in the SQL Editor. Both are safe to run again:
+Run each of these once in the SQL Editor. All of them are safe to run again:
 
 - [`migration-001-fixes.sql`](migration-001-fixes.sql) fixes the viewport RPC and adds
   the policy that lets people delete their own pins.
 - [`migration-002-gdpr.sql`](migration-002-gdpr.sql) adds `delete_my_account()`, which
   the app's "Smazat účet" button calls. Without it, that button fails.
+- [`migration-003-verification.sql`](migration-003-verification.sql) adds the write
+  limits and the confirmation model described below. Every project needs this one, not
+  only an existing database. Until you run it, the app still works, but new pins go live
+  unchecked and the tree detail screen can't confirm anything.
+
+## Verification
+
+Anyone can sign up and the anon key ships in the app bundle, so nothing the client
+checks stops a script from posting pins straight to PostgREST. Migration 003 moves the
+rules into the database, where they hold:
+
+- **Limits on writing.** One account gets 12 pins a day, none of them within 15 m of
+  another of its own, and none outside a bounding box around Czechia. A pin placed from
+  a fix vaguer than 100 m is refused.
+- **Corroboration for showing.** Every pin starts `unverified`: the map draws it faded
+  and Sklizeň leaves it out. Two other pickers standing within 60 m of it promote it to
+  `active`. Nobody can confirm their own pin, and `confirm_tree()` measures the distance
+  against the stored location, so a caller can't assert it.
+- **Corroboration for removing, too.** A "tree is gone" flag used to hide a pin on one
+  tap. It now takes two pickers, unless the pin's own author says so.
+
+The thresholds are mirrored in [`src/lib/verification.ts`](../src/lib/verification.ts),
+which enforces them in local mode and writes the messages the app shows. **Change one
+copy and change the other**, or local mode starts promising what the database refuses.
+
+To vouch for a pin by hand — a tree you know is real, or one a new district needs to get
+started — set its `trusted` column:
+
+```sql
+select set_tree_trusted('…');
+```
+
+Use that function rather than updating the column directly. A plain
+`update trees set trusted = true` is reverted by the guard that stops contributors from
+promoting their own pins, and it reports `UPDATE 1` while changing nothing.
+`set_tree_trusted()` sets the column and recomputes the status in one step. Pass `false`
+as a second argument to withdraw the vouch.
+
+Migration 003 sets `trusted` on everything that already existed, so running it never
+blanks a live map.
 
 ## GDPR checklist
 
@@ -206,3 +258,5 @@ export and account deletion. Two things need your confirmation:
 | The app still says "Local mode" | The environment variables aren't baked in. Restart the dev server, or redeploy after you set the variables. |
 | The map is empty after you connect the backend | This is expected on a fresh database. Sign in and add a tree, or run `seed.sql`. |
 | The schema run fails midway | The project wasn't fresh, or you ran the script twice. Don't run it again. Write a targeted cleanup script. |
+| Migration 003 says `type "extensions.geography" does not exist` | Your project keeps PostGIS in a different schema. Check with `select nspname from pg_extension e join pg_namespace n on n.oid = e.extnamespace where extname = 'postgis'`, and add that schema to the `set search_path` line of any function that fails. |
+| Migration 003 says `cannot change return type of existing function` | An older `trees_in_bbox` is still there and Postgres won't replace it with one that returns more columns. The migration drops it first, so this means you're running an outdated copy of the file. |

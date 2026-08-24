@@ -57,6 +57,40 @@ const en = {
   // tree detail
   treeGone: 'This tree is no longer on the map.',
   unverified: 'Unverified',
+
+  // verification
+  verifyTitle: 'IS THIS TREE REALLY THERE?',
+  verifyUnverified: 'Nobody has confirmed this pin yet, so the map keeps it faded.',
+  verifyNeeds:
+    '{n, plural, one {It needs # more picker to stand here and confirm it.} other {It needs # more pickers to stand here and confirm it.}}',
+  verifyConfirmed:
+    '{n, plural, one {# picker has confirmed this tree from the spot.} other {# pickers have confirmed this tree from the spot.}}',
+  verifyTrusted: 'An established pin, trusted without confirmations.',
+  verifyCta: 'I am here, the tree is real',
+  verifyHint: 'You have to be within {m} m of the tree.',
+  verifyChecking: 'Checking where you are…',
+  toastConfirmed: 'Confirmed · +30 XP',
+  toastVerified: 'That is two pickers — this tree is on the map for real',
+  filterVerified: 'Confirmed only',
+
+  // why a confirmation was refused
+  confirm_own_tree: 'You pinned this one, so it takes somebody else to confirm it.',
+  confirm_already_confirmed: 'You have already confirmed this tree.',
+  confirm_no_fix: 'The app cannot tell where you are, so this would not prove anything.',
+  confirm_bad_fix: 'Your position is too vague right now. Try again with more sky overhead.',
+  confirm_too_far: 'You have to be within {m} m of the tree to confirm it.',
+  confirm_daily_limit: 'That is every confirmation for today. More tomorrow.',
+  confirm_no_such_tree: 'This tree is no longer on the map.',
+  confirm_no_profile: 'Sign in to confirm a tree.',
+  confirm_sync_failed: 'That did not reach the server. Check your signal and try again.',
+
+  // why a pin was refused
+  pin_bad_coords: 'The app could not work out where that pin goes.',
+  pin_bad_fix: 'Your position is too vague to place a pin. Try again with more sky overhead.',
+  pin_out_of_area: 'JabkoZdarma maps Czechia, and that pin lands outside it.',
+  pin_too_close: 'You already have a pin within {m} m. Edit that one instead of adding a second.',
+  pin_daily_limit: 'That is {n} pins today, which is the daily limit. More tomorrow.',
+  pin_no_profile: 'Sign in to add a tree.',
   usualSeason: 'Usual season:',
   addedBy: 'Added by {name} · {when}',
   walkThere: 'Walk there',
@@ -282,6 +316,40 @@ const cs: typeof en = {
 
   treeGone: 'Tento strom už na mapě není.',
   unverified: 'Neověřeno',
+
+  // verification
+  verifyTitle: 'STOJÍ TU STROM DOOPRAVDY?',
+  verifyUnverified: 'Tenhle špendlík zatím nikdo nepotvrdil, proto ho mapa kreslí zesvětlený.',
+  verifyNeeds:
+    '{n, plural, one {Chybí ještě # sběrač, který u něj stojí a potvrdí ho.} few {Chybí ještě # sběrači, kteří u něj stojí a potvrdí ho.} other {Chybí ještě # sběračů, kteří u něj stojí a potvrdí ho.}}',
+  verifyConfirmed:
+    '{n, plural, one {Strom potvrdil # sběrač přímo na místě.} few {Strom potvrdili # sběrači přímo na místě.} other {Strom potvrdilo # sběračů přímo na místě.}}',
+  verifyTrusted: 'Zavedený špendlík, důvěryhodný i bez potvrzení.',
+  verifyCta: 'Jsem tu, strom je skutečný',
+  verifyHint: 'Musíte být do {m} m od stromu.',
+  verifyChecking: 'Zjišťuji, kde jste…',
+  toastConfirmed: 'Potvrzeno · +30 XP',
+  toastVerified: 'To jsou dva sběrači — strom je na mapě naostro',
+  filterVerified: 'Jen potvrzené',
+
+  // why a confirmation was refused
+  confirm_own_tree: 'Tenhle špendlík jste přidali vy, potvrdit ho musí někdo jiný.',
+  confirm_already_confirmed: 'Tenhle strom jste už potvrdili.',
+  confirm_no_fix: 'Aplikace neví, kde jste, takže by to nic nedokazovalo.',
+  confirm_bad_fix: 'Vaše poloha je teď moc nepřesná. Zkuste to znovu pod otevřeným nebem.',
+  confirm_too_far: 'Pro potvrzení musíte být do {m} m od stromu.',
+  confirm_daily_limit: 'To je pro dnešek všechno. Zítra zase.',
+  confirm_no_such_tree: 'Tenhle strom už na mapě není.',
+  confirm_no_profile: 'Pro potvrzení stromu se přihlaste.',
+  confirm_sync_failed: 'Nepodařilo se to odeslat. Zkontrolujte signál a zkuste to znovu.',
+
+  // why a pin was refused
+  pin_bad_coords: 'Nepodařilo se určit, kam špendlík patří.',
+  pin_bad_fix: 'Vaše poloha je moc nepřesná na umístění špendlíku. Zkuste to pod otevřeným nebem.',
+  pin_out_of_area: 'JabkoZdarma mapuje Česko a tenhle špendlík míří mimo.',
+  pin_too_close: 'Do {m} m už jeden špendlík máte. Upravte radši ten místo přidání druhého.',
+  pin_daily_limit: 'To je {n} špendlíků za dnešek, což je denní strop. Zítra zase.',
+  pin_no_profile: 'Pro přidání stromu se přihlaste.',
   usualSeason: 'Obvyklá sezóna:',
   addedBy: 'Přidal(a) {name} · {when}',
   walkThere: 'Trasa pěšky',
