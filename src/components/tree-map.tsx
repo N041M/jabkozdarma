@@ -1,29 +1,48 @@
-import { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { Circle, Marker, Polyline } from 'react-native-maps';
+import { useEffect, useMemo, useRef } from 'react';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 
+import { clusterTrees } from '@/lib/clustering';
 import { pinColor } from '@/lib/labels';
-import { MODE_PITCH } from '@/lib/map-style';
+import { STOPS, zoomForStop } from '@/lib/zoom-ladder';
 import { PRAGUE, ROUTE_COLOR, type TreeMapProps } from './tree-map.types';
 
 export default function TreeMap({
   trees,
   reports,
-  placing,
   onPressTree,
-  onPressMap,
   flyTo,
   route,
   userLocation,
-  placeRadiusM,
   mode = 'go',
+  stop,
+  onPressCluster,
+  onCenterChange,
 }: TreeMapProps) {
   const mapRef = useRef<MapView>(null);
+  const { width } = useWindowDimensions();
 
-  // Native (v2) has no custom style yet; the mode just controls the tilt.
+  // Native (v2) has no custom style yet, so the ladder shows up as camera
+  // work only: the stop sets both the tilt and how much world is on screen.
   useEffect(() => {
-    mapRef.current?.animateCamera({ pitch: MODE_PITCH[mode] }, { duration: 400 });
-  }, [mode]);
+    mapRef.current?.animateCamera(
+      {
+        pitch: mode === 'flat' ? 0 : STOPS[stop].pitch,
+        zoom: zoomForStop(stop, width, PRAGUE.lat),
+      },
+      { duration: 500 }
+    );
+  }, [mode, stop, width]);
+
+  const clusters = useMemo(() => {
+    const cellM = STOPS[stop].clusterM;
+    return cellM === null ? [] : clusterTrees(trees, reports, cellM);
+  }, [trees, reports, stop]);
+
+  // Trees draw individually up to street scale, fold into counts at district
+  // scale, and are gone entirely at region scale.
+  const showSprites = STOPS[stop].spriteH !== null;
+  const showAvatar = STOPS[stop].avatarH !== null;
 
   useEffect(() => {
     if (flyTo) {
@@ -53,21 +72,10 @@ export default function TreeMap({
         latitudeDelta: 0.12,
         longitudeDelta: 0.12,
       }}
-      onPress={(e) => {
-        if (!placing) return;
-        const { latitude, longitude } = e.nativeEvent.coordinate;
-        onPressMap(latitude, longitude);
-      }}>
-      {userLocation && placeRadiusM ? (
-        <Circle
-          center={{ latitude: userLocation.lat, longitude: userLocation.lng }}
-          radius={placeRadiusM}
-          strokeColor="#3B6FD4"
-          fillColor="rgba(59,111,212,0.12)"
-          strokeWidth={2}
-        />
-      ) : null}
-      {userLocation && (
+      onRegionChangeComplete={(region) =>
+        onCenterChange?.({ lat: region.latitude, lng: region.longitude })
+      }>
+      {userLocation && showAvatar && (
         <Marker
           coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }}
           anchor={{ x: 0.5, y: 0.5 }}
@@ -82,13 +90,37 @@ export default function TreeMap({
           strokeWidth={4}
         />
       )}
-      {trees.map((tree) => (
+      {clusters.map((cluster) => (
+        <Marker
+          key={cluster.key}
+          coordinate={{ latitude: cluster.lat, longitude: cluster.lng }}
+          onPress={(e) => {
+            e.stopPropagation();
+            onPressCluster?.({ lat: cluster.lat, lng: cluster.lng });
+          }}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}>
+          <View
+            style={[
+              styles.cluster,
+              {
+                backgroundColor: cluster.hasRipe ? '#C9402F' : '#38754A',
+                width: Math.min(64, 30 + cluster.count * 7),
+                height: Math.min(64, 30 + cluster.count * 7),
+                borderRadius: Math.min(32, 15 + cluster.count * 3.5),
+              },
+            ]}>
+            <Text style={styles.clusterCount}>{cluster.count}</Text>
+          </View>
+        </Marker>
+      ))}
+      {showSprites && trees.map((tree) => (
         <Marker
           key={tree.id}
           coordinate={{ latitude: tree.lat, longitude: tree.lng }}
           onPress={(e) => {
             e.stopPropagation();
-            if (!placing) onPressTree(tree);
+            onPressTree(tree);
           }}
           anchor={{ x: 0.5, y: 0.5 }}
           tracksViewChanges={false}>
@@ -119,6 +151,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   unverified: { opacity: 0.55 },
+  cluster: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3.5,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.26,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  clusterCount: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
   // Native (v2) keeps a plain position dot; the avatar sprite is web-only.
   player: {
     width: 20,

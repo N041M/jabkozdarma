@@ -10,7 +10,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform, Text, View, useColorScheme } from 'react-native';
 
-import { Button, HeaderBack } from '@/components/ui';
+import Toast from '@/components/toast';
+import { Button } from '@/components/ui';
 import { palette, useTheme } from '@/constants/theme';
 import { t as t2 } from '@/lib/i18n';
 import { useStore } from '@/lib/store';
@@ -68,25 +69,15 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={theme}>
       <StatusBar style="auto" />
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="tree/[id]"
-          options={{ title: t2('appleTree'), headerLeft: () => <HeaderBack /> }}
-        />
-        <Stack.Screen
-          name="privacy"
-          options={{ title: t2('privacyTitle'), headerLeft: () => <HeaderBack /> }}
-        />
-        <Stack.Screen
-          name="add-tree"
-          options={{
-            title: t2('addTreeTitle'),
-            presentation: 'modal',
-            headerLeft: () => <HeaderBack />,
-          }}
-        />
+      {/*
+        Every screen draws its own 44 px header with a back arrow to the map,
+        so the navigator contributes no chrome of its own. The map is the hub;
+        the rail on the map is the only navigation surface.
+      */}
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
+        <Stack.Screen name="add-tree" options={{ presentation: 'modal' }} />
       </Stack>
+      <Toast />
     </ThemeProvider>
   );
 }

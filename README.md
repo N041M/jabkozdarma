@@ -1,71 +1,121 @@
 # JabkoZdarma 🍎
 
-A community map of freely pickable apple trees. Anyone can browse; contributors pin
-trees, add photos, and report what's ripe right now.
+A community map of freely pickable fruit trees. Anyone can browse the map. Contributors
+pin trees, add photos, and report what's ripe right now.
 
-**Web-first:** v1 ships as a phone-optimized, installable web app (live at
-https://n041m.github.io/jabkozdarma/, deployed from `main` by GitHub Actions).
-The codebase is Expo (React Native + TypeScript), so native iOS/Android builds
-are a v2 flip-of-a-switch, not a rewrite.
+JabkoZdarma ships first as a phone-optimized, installable web app. Try the
+[live app on GitHub Pages](https://n041m.github.io/jabkozdarma/), which GitHub Actions
+deploys from `main`. The codebase is Expo, using React Native and TypeScript, so native
+iOS and Android builds are a configuration change rather than a rewrite.
 
-## Run it
+## Run the app
 
 ```bash
 npm install
-npm start          # web dev server at http://localhost:8081
-npm run start:native   # v2: Expo Go / native development
+npm start              # web dev server at http://localhost:8081
+npm run start:native   # v2: Expo Go and native development
 ```
 
-- **Web** uses MapLibre GL with a custom Pokémon GO-style vector map ("Orchard GO"):
-  tilted 3D camera, extruded buildings, saturated-green world (OpenFreeMap vector
-  tiles, no API key), and sprite apple trees whose look reflects the latest
-  ripeness report.
-- **iOS / Android (deferred to v2)** use `react-native-maps` via the platform-split
-  `tree-map` component; the native path stays compiling but isn't the focus.
-- **Languages:** Czech + English, auto-detected from the device; override with
-  `?lang=cs` / `?lang=en` in the URL.
-- **Location & privacy:** position comes from the browser's Geolocation API with the
-  user's permission, read on-device. The static host never sees it; coordinates leave
-  the device only as the two endpoints sent to the OSRM router when requesting a route.
+Restart the dev server after you change any environment variable. Expo bakes
+environment variables in at bundle time, so a running server doesn't pick them up.
 
-## Current state (Phase 1 MVP, local mode)
+## How the map works
 
-- Browse the map with clustered-free pins colored by the latest ripeness report
-- Add a tree: tap **+**, tap the map, fill in variety / notes / access / season / photo
-  (duplicate warning if a pin already exists within 25 m)
-- Tree detail: photos, access badge, season, report timeline, one-tap ripeness report,
-  favorites, "report a problem" flags
-- In-app walking routes: "Walk there" draws the route on the map (FOSSGIS OSRM,
-  foot profile) with a distance/duration banner — no handoff to external map apps
-- Local profiles (username only) gate contributions; browsing needs no account
-- Everything persists on-device (AsyncStorage). Seed pins around Prague so the map
-  is never empty.
-- Retention roadmap ("game-ify the harvest"): Duolingo-style season streaks, XP and
-  weekly quests, plus Pokémon GO-style variety collection (Jablkodex) and GPS
-  check-in picks — see the product plan for mechanics and guardrails.
+On the web, the map is MapLibre GL with a custom Pokémon GO-style vector map called
+Orchard GO: a tilted 3D camera, extruded buildings, and a saturated-green world drawn
+from OpenFreeMap vector tiles, which need no API key. Each tree is a sprite whose look
+reflects its latest ripeness report.
 
-## Connecting the backend
+### The camera ladder
 
-The integration is fully implemented — email-code (OTP) sign-in, shared
-trees/reports/favorites/flags, and photo uploads to Supabase Storage. The app runs
-in local mode until it finds credentials, then switches automatically.
+Zoom isn't a scale slider. It changes what the map *is*, across four stops that the
+camera snaps to:
 
-**Follow [supabase/SETUP.md](supabase/SETUP.md)** — exact dashboard steps, including
-the one gotcha (the Magic Link email template must contain `{{ .Token }}` or the
-sign-in email carries no code), plus [supabase/seed.sql](supabase/seed.sql) to start
-the map with the Prague pins instead of empty.
+| Stop | What you see | Rail action |
+| --- | --- | --- |
+| 50 m | You stand next to a tree: 58° pitch, full-size avatar | Trhám (pick) or Přidat (add) |
+| 250 m | Browsable sprites with ripeness rings and walking times | Trasa (route) |
+| 2 km | Trees fold into counted clusters | Čtvrť (district) |
+| 20 km | No trees at all, only density per km² | Oblast (area) |
 
-## Layout
+A pinch runs free while your fingers are down. When it settles, the map snaps to
+whichever stop it landed nearest. For the stop definitions and the zoom math, see
+[`src/lib/zoom-ladder.ts`](src/lib/zoom-ladder.ts).
+
+### The rail
+
+Navigation is a vertical rail on the right, not a bar along the bottom. Most people meet
+this app as a link in Safari, whose toolbar owns 74 px of the bottom edge. The rail sits
+inside the thumb arc instead, and its bottom slot is the primary action, which the
+current zoom stop decides. To move the rail to the left edge, go to **Profil > Strana
+lišty**. For the measurements this depends on, see
+[`src/lib/chrome.ts`](src/lib/chrome.ts).
+
+### Platforms, languages, and privacy
+
+- **iOS and Android**, deferred to v2, use `react-native-maps` through the
+  platform-split `tree-map` component. The native path keeps compiling, but it isn't
+  the focus.
+- **Languages**: Czech and English, detected from the device. To override the
+  detection, add `?lang=cs` or `?lang=en` to the URL.
+- **Location and privacy**: the browser's Geolocation API supplies the position, with
+  the user's permission, and the app reads it on-device. The static host never sees it.
+  Coordinates leave the device only as the two endpoints that the app sends to the OSRM
+  router when it requests a route.
+
+## What's built (Phase 1 MVP, local mode)
+
+- Browse the map through the four camera-ladder stops. A context card reports what the
+  camera is looking at, and the scale badge cycles the stops.
+- **Sklizeň**: the map's ranked twin. It lists the same trees ordered by walking
+  distance, filtered by "ripe now" and "under 2 km".
+- **Add a tree** from the rail. The pin lands where you're standing, and then you fill
+  in variety, notes, access, season, and photo. The form warns you if a pin already
+  exists within 25 m.
+- **Tree detail**: photos, an access badge, the season, a report timeline, one-tap
+  ripeness reporting, favorites, and problem flags.
+- **In-app walking routes**: "Trasa pěšky" draws the route on the map using the FOSSGIS
+  OSRM foot profile, with no handoff to an external map app.
+- **Jablkodex**: the retention layer. It tracks XP (15 for a report, 25 for a check-in,
+  40 for a new tree, and 150 for the weekly quest), levels, day streaks, a weekly quest,
+  and a 24-variety collection grid that fills from the varieties you've contributed or
+  reported on.
+- Local profiles, which need only a username, gate contributions. Browsing needs no
+  account.
+- Everything persists on-device through AsyncStorage. Seed pins around Prague keep the
+  map from starting empty.
+
+**Caution:** Gamification state is local-only, so anyone can edit it on their own
+device. It needs a server-side home once the backend is live.
+
+## Connect the backend
+
+The integration is complete. It covers magic-link sign-in, shared trees, reports,
+favorites and flags, and photo uploads to Supabase Storage. The app runs in local mode
+until it finds credentials, and then switches over on its own.
+
+For the dashboard steps, see [Supabase setup](supabase/SETUP.md). To start the map with
+the Prague pins instead of an empty database, run
+[`supabase/seed.sql`](supabase/seed.sql).
+
+## Project layout
 
 ```
 src/
-  app/            expo-router screens
-    (tabs)/       map (index) + profile
+  app/            expo-router screens, as a flat stack. The map is the hub that
+                  every other screen returns to through its own 44 px header.
+    index         the map: camera ladder, rail, and context card
+    harvest       Sklizeň, the ranked list
+    dex           Jablkodex: XP, streak, quest, and variety grid
+    profile       account, GDPR controls, rail side, and language
     tree/[id]     tree detail
-    add-tree      add/edit modal
-  components/     tree-map (native + web implementations), shared UI
-  lib/            types, store (zustand + AsyncStorage), seed data, supabase client
+    add-tree      add and edit modal
+  components/     tree-map for native and web, rail, context card, map chrome,
+                  toast, and shared UI
+  lib/            types, the zustand and AsyncStorage store, zoom-ladder, chrome
+                  insets, clustering, Jablkodex progress, seed data, and the
+                  Supabase client
   constants/      theme palette
 supabase/
-  schema.sql      full Postgres schema with RLS
+  schema.sql      the full Postgres schema, with row-level security
 ```

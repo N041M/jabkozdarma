@@ -20,10 +20,7 @@ const en = {
   legendRipe: 'Ripe now',
   legendUnripe: 'Unripe',
   legendNone: 'No report',
-  placingBanner: 'Tap the map where the tree stands',
-  placingHint: 'Inside the circle only — within {max} m of you',
   needLocationToAdd: 'Adding a tree needs your location, so pins land where you actually are.',
-  tooFarToPlace: 'That spot is too far away. You can only add trees within {max} m of yourself.',
   cancel: 'Cancel',
   routeTo: 'to {label}',
   routeFormat: '{dist} · {time} walk',
@@ -67,7 +64,7 @@ const en = {
   routeError: 'Couldn’t get a walking route — check that location access is allowed and try again.',
   edit: 'Edit',
   howIsIt: 'How is it right now?',
-  signInToReport: 'Sign in on the Profile tab to report ripeness.',
+  signInToReport: 'Sign in on the Profile screen to report ripeness.',
   reports: 'Reports',
   noReports: 'No reports yet',
   flagThanks: 'Thanks — flagged as “{reason}”. A moderator will take a look.',
@@ -158,8 +155,87 @@ const en = {
   monthAgo: 'a month ago',
   monthsAgo: '{n} months ago',
 
+  // rail & camera ladder
+  tabHarvest: 'Harvest',
+  tabDex: 'Jablkodex',
+  actPick: 'Pick',
+  actAdd: 'Add',
+  actRoute: 'Route',
+  actDistrict: 'District',
+  actArea: 'Area',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  cycleScale: 'Change the zoom stop',
+
+  // context card
+  cardNoTree: 'No tree within {r} m',
+  cardNoTreeSub: 'Is there one here? Add it with the Add button.',
+  cardInView: '{n, plural, one {# tree} other {# trees}} in view',
+  cardBreak: '{ripe} ripe · {unripe} unripe · {none} unreported',
+  cardBest: 'Most ripe: {name}',
+  cardBestNearby: 'Most ripe nearby',
+  cardBestSubNoLocation: '{n, plural, one {# tree} other {# trees}}, distance unknown',
+  cardBestSub: '{n, plural, one {# tree} other {# trees}} · {d} · {t} walk',
+  cardRegion: 'Prague and Central Bohemia',
+  cardRegionSub: '{n, plural, one {# tree} other {# trees}} · {r} ripe right now',
+  cardReport: 'Report',
+  addFavorite: 'Save to favorites',
+  removeFavorite: 'Remove from favorites',
+  removePhoto: 'Remove photo',
+  dismiss: 'Dismiss',
+  metresAway: '{n} m away',
+  densityLegend: 'TREES / KM²',
+  seasonSixMonths: 'Ripe reports, last six months',
+
+  // toasts
+  toastPick: 'Picked · +25 XP',
+  toastTree: 'Tree is on the map · +40 XP',
+  toastReport: 'Reported · +15 XP',
+  toastQuest: 'Weekly quest complete · +150 XP',
+  toastRoute: 'Route to {name} · {d}',
+  toastDex: 'New variety: {name}',
+  toastDistrict: 'Camera flew to {name}',
+  toastArea: 'Densest area selected',
+  toastNothingNear: 'No tree near enough to pick',
+  toastNoRoute: 'Couldn’t get a walking route right now',
+  toastSignIn: 'Sign in on the Profile screen to contribute',
+
+  // harvest list
+  harvestTitle: 'Harvest',
+  filterNear: 'Under 2 km',
+  nearYou: 'Near you',
+  harvestEmpty: 'Nothing matches these filters yet — try turning one off.',
+  needLocationForList: 'Allow location and the list sorts by how far away each tree is.',
+
+  // jablkodex
+  dexTitle: 'Jablkodex',
+  dexSubtitle: '{n} of {total} varieties found',
+  level: 'Level {n} · Picker',
+  xpProgress: '{xp} / {max} XP',
+  questLabel: 'QUEST OF THE WEEK',
+  questTitle: 'Report ripeness at 3 trees',
+  questReward: '+150 XP',
+  questHint: 'Resets on Monday',
+  questDone: 'Done — a new quest lands on Monday',
+  streakLabel: '{n, plural, one {# day} other {# days}} in a row',
+  varieties: 'Varieties',
+  notFound: 'Not found',
+
+  // add a tree
+  placedHere: 'The pin lands where you are standing.',
+  saveReward: 'A new tree earns you 40 XP',
+
+  // profile
+  railSideLabel: 'RAIL SIDE',
+  railRight: 'Right',
+  railLeft: 'Left',
+  railSideHint: 'Which edge the navigation rail sits on — put it under your thumb.',
+
   // months (short)
   months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+
+  // weekdays (short), Monday first
+  days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
 };
 
 const cs: typeof en = {
@@ -173,10 +249,7 @@ const cs: typeof en = {
   legendRipe: 'Zralé teď',
   legendUnripe: 'Nezralé',
   legendNone: 'Bez hlášení',
-  placingBanner: 'Klepněte na mapu tam, kde strom stojí',
-  placingHint: 'Jen uvnitř kruhu — do {max} m od vás',
   needLocationToAdd: 'Pro přidání stromu je potřeba vaše poloha, aby špendlík seděl tam, kde opravdu jste.',
-  tooFarToPlace: 'To místo je příliš daleko. Stromy lze přidávat jen do {max} m od vás.',
   cancel: 'Zrušit',
   routeTo: 'cíl: {label}',
   routeFormat: '{dist} · {time} pěšky',
@@ -215,7 +288,7 @@ const cs: typeof en = {
   routeError: 'Trasu se nepodařilo najít — zkontrolujte povolení polohy a zkuste to znovu.',
   edit: 'Upravit',
   howIsIt: 'Jak to tam teď vypadá?',
-  signInToReport: 'Pro hlášení zralosti se přihlaste na záložce Profil.',
+  signInToReport: 'Pro hlášení zralosti se přihlaste v Profilu.',
   reports: 'Hlášení',
   noReports: 'Zatím žádná hlášení',
   flagThanks: 'Díky — nahlášeno jako „{reason}“. Moderátor se na to podívá.',
@@ -300,7 +373,80 @@ const cs: typeof en = {
   monthAgo: 'před měsícem',
   monthsAgo: 'před {n} měsíci',
 
+  tabHarvest: 'Sklizeň',
+  tabDex: 'Jablkodex',
+  actPick: 'Trhám',
+  actAdd: 'Přidat',
+  actRoute: 'Trasa',
+  actDistrict: 'Čtvrť',
+  actArea: 'Oblast',
+  zoomIn: 'Přiblížit',
+  zoomOut: 'Oddálit',
+  cycleScale: 'Změnit úroveň přiblížení',
+
+  cardNoTree: 'Žádný strom do {r} m',
+  cardNoTreeSub: 'Stojí tu jeden? Přidejte ho tlačítkem Přidat.',
+  cardInView: '{n, plural, one {# strom} few {# stromy} other {# stromů}} v dohledu',
+  cardBreak:
+    '{ripe, plural, one {# zralý} few {# zralé} other {# zralých}} · {unripe, plural, one {# nezralý} few {# nezralé} other {# nezralých}} · {none} bez hlášení',
+  cardBest: 'Nejvíc zralého: {name}',
+  cardBestNearby: 'Nejvíc zralého poblíž',
+  cardBestSubNoLocation:
+    '{n, plural, one {# strom} few {# stromy} other {# stromů}} · vzdálenost neznámá',
+  cardBestSub: '{n, plural, one {# strom} few {# stromy} other {# stromů}} · {d} · {t} pěšky',
+  cardRegion: 'Praha a Střední Čechy',
+  cardRegionSub:
+    '{n, plural, one {# strom} few {# stromy} other {# stromů}} · {r, plural, one {# zralý} few {# zralé} other {# zralých}} právě teď',
+  cardReport: 'Nahlásit',
+  addFavorite: 'Přidat do oblíbených',
+  removeFavorite: 'Odebrat z oblíbených',
+  removePhoto: 'Odebrat fotku',
+  dismiss: 'Zavřít',
+  metresAway: '{n} m od vás',
+  densityLegend: 'STROMŮ / KM²',
+  seasonSixMonths: 'Hlášení zralosti za posledních šest měsíců',
+
+  toastPick: 'Sklizeno · +25 XP',
+  toastTree: 'Strom je na mapě · +40 XP',
+  toastReport: 'Nahlášeno · +15 XP',
+  toastQuest: 'Úkol týdne splněn · +150 XP',
+  toastRoute: 'Trasa k {name} · {d}',
+  toastDex: 'Nová odrůda: {name}',
+  toastDistrict: 'Kamera přeletěla na {name}',
+  toastArea: 'Vybrána oblast s nejvyšší hustotou',
+  toastNothingNear: 'Žádný strom dost blízko na trhání',
+  toastNoRoute: 'Trasu se teď nepodařilo najít',
+  toastSignIn: 'Přispívat můžete po přihlášení v Profilu',
+
+  harvestTitle: 'Sklizeň',
+  filterNear: 'Do 2 km',
+  nearYou: 'Blízko vás',
+  harvestEmpty: 'Tomuto filtru zatím nic neodpovídá — zkuste některý vypnout.',
+  needLocationForList: 'Povolte polohu a seznam se seřadí podle vzdálenosti.',
+
+  dexTitle: 'Jablkodex',
+  dexSubtitle: '{n} z {total} odrůd nalezeno',
+  level: 'Úroveň {n} · Sběrač',
+  xpProgress: '{xp} / {max} XP',
+  questLabel: 'ÚKOL TÝDNE',
+  questTitle: 'Nahlas zralost u 3 stromů',
+  questReward: '+150 XP',
+  questHint: 'Nový úkol v pondělí',
+  questDone: 'Splněno — nový úkol v pondělí',
+  streakLabel: '{n, plural, one {# den} few {# dny} other {# dní}} v řadě',
+  varieties: 'Odrůdy',
+  notFound: 'Nenalezeno',
+
+  placedHere: 'Špendík padne tam, kde právě stojíte.',
+  saveReward: 'Za nový strom získáte 40 XP',
+
+  railSideLabel: 'STRANA LIŠTY',
+  railRight: 'Vpravo',
+  railLeft: 'Vlevo',
+  railSideHint: 'Na kterém okraji stojí ovládací lišta — dejte si ji pod palec.',
+
   months: ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'],
+  days: ['po', 'út', 'st', 'čt', 'pá', 'so', 'ne'],
 };
 
 export type Lang = 'cs' | 'en';
@@ -354,16 +500,30 @@ type StringKey = {
   [K in keyof typeof en]: (typeof en)[K] extends string ? K : never;
 }[keyof typeof en];
 
-/** Translate, filling {placeholders}. Handles the one plural form we need. */
+/**
+ * Which plural branch a count takes. Czech needs three: `strom` for one,
+ * `stromy` for two through four, `stromů` for everything else — including
+ * zero. English collapses `few` into `other`.
+ */
+function pluralForm(n: number): 'one' | 'few' | 'other' {
+  if (n === 1) return 'one';
+  if (lang === 'cs' && n >= 2 && n <= 4) return 'few';
+  return 'other';
+}
+
+/** Translate, filling {placeholders}. Handles the plural forms we need. */
 export function t(key: StringKey, params?: Record<string, string | number>): string {
   let s = dict[key];
   if (params) {
-    // minimal ICU-ish plural: {count, plural, one {...} other {...}}
+    // minimal ICU-ish plural: {count, plural, one {...} few {...} other {...}}
+    // — `few` is optional, and falls back to `other` when a string omits it.
     s = s.replace(
-      /\{(\w+), plural, one \{([^}]*)\} other \{([^}]*)\}\}/g,
-      (_, name, one, other) => {
+      /\{(\w+), plural, one \{([^}]*)\}(?: few \{([^}]*)\})? other \{([^}]*)\}\}/g,
+      (_, name, one, few, other) => {
         const n = Number(params[name] ?? 0);
-        return (n === 1 ? one : other).replace('#', String(n));
+        const form = pluralForm(n);
+        const chosen = form === 'one' ? one : form === 'few' ? (few ?? other) : other;
+        return chosen.replaceAll('#', String(n));
       }
     );
     for (const [k, v] of Object.entries(params)) {
@@ -375,6 +535,11 @@ export function t(key: StringKey, params?: Record<string, string | number>): str
 
 export function monthShort(m: number): string {
   return dict.months[m - 1] ?? '';
+}
+
+/** Short weekday name, Monday-first — the order the streak row reads in. */
+export function dayShort(i: number): string {
+  return dict.days[i] ?? '';
 }
 
 /** 1.2 km with a decimal comma in Czech. */

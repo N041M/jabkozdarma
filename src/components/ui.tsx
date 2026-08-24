@@ -1,30 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ripenessColors, useTheme } from '@/constants/theme';
 import { t as t2 } from '@/lib/i18n';
 import { accessLabels, ripenessLabels, timeAgo } from '@/lib/labels';
 import type { AccessType, TreeReport } from '@/lib/types';
-
-/**
- * Back control that always works: pops history when there is any, otherwise
- * jumps home. Screens outside the tab bar must never be dead ends — deep
- * links, refreshes, and the installed PWA (no browser chrome) all land
- * without navigation history.
- */
-export function HeaderBack() {
-  const router = useRouter();
-  const t = useTheme();
-  return (
-    <Pressable
-      hitSlop={12}
-      onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-      style={{ paddingHorizontal: 8 }}>
-      <Ionicons name="arrow-back" size={24} color={t.ink} />
-    </Pressable>
-  );
-}
 
 export function AccessBadge({ access }: { access: AccessType }) {
   const t = useTheme();
@@ -74,6 +57,9 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 },
@@ -82,6 +68,93 @@ export function Button({
       <Text style={{ color: fg, fontWeight: '700', fontSize: 15 }}>{label}</Text>
     </Pressable>
   );
+}
+
+/**
+ * The 44 px header every pushed screen carries. The map is the hub, so the
+ * back control always returns there rather than unwinding an arbitrary
+ * history — a deep link or a refresh has none to unwind.
+ */
+export function ScreenHeader({
+  title,
+  right,
+  close,
+}: {
+  title: string;
+  right?: ReactNode;
+  close?: boolean;
+}) {
+  const t = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.header,
+        { backgroundColor: t.surface, borderBottomColor: t.line, paddingTop: insets.top },
+      ]}>
+      <View style={styles.headerRow}>
+        <Pressable
+          hitSlop={12}
+          accessibilityLabel={title}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          style={styles.headerSide}>
+          <Ionicons name={close ? 'close' : 'arrow-back'} size={close ? 26 : 24} color={t.ink} />
+        </Pressable>
+        <Text numberOfLines={1} style={[styles.headerTitle, { color: t.ink }]}>
+          {title}
+        </Text>
+        <View style={[styles.headerSide, styles.headerRight]}>{right}</View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The pill used for species, access, season, ripeness and filters. One
+ * geometry everywhere, so a tap target is never a surprise: 34 px tall
+ * inside a row that clears 44 px.
+ */
+export function Chip({
+  label,
+  selected,
+  onPress,
+  dotColor,
+  disabled,
+}: {
+  label: string;
+  selected?: boolean;
+  onPress: () => void;
+  dotColor?: string;
+  disabled?: boolean;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!selected }}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          backgroundColor: selected ? t.green : t.surface,
+          borderColor: selected ? t.green : t.line,
+          opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
+        },
+      ]}>
+      {dotColor && <View style={[styles.chipDot, { backgroundColor: dotColor }]} />}
+      <Text style={{ color: selected ? '#FFFFFF' : t.ink, fontSize: 13, fontWeight: '600' }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** The 11 px letter-spaced caps that title a group of fields. */
+export function FieldLabel({ children }: { children: string }) {
+  const t = useTheme();
+  return <Text style={[styles.fieldLabel, { color: t.muted }]}>{children}</Text>;
 }
 
 const styles = StyleSheet.create({
@@ -101,4 +174,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  header: { borderBottomWidth: 1 },
+  headerRow: { height: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  headerSide: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerRight: { alignItems: 'flex-end', paddingRight: 4 },
+  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', textAlign: 'center' },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipDot: { width: 10, height: 10, borderRadius: 5 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
 });

@@ -13,11 +13,13 @@ import {
   View,
 } from 'react-native';
 
-import { Button } from '@/components/ui';
+import { Chip, FieldLabel, ScreenHeader } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
 import { monthShort, t as t2 } from '@/lib/i18n';
 import { accessLabels, speciesLabels } from '@/lib/labels';
+import { discoveredVarieties } from '@/lib/dex';
 import { useStore } from '@/lib/store';
+import { useToast } from '@/lib/toast';
 import { SPECIES, type AccessType, type Species } from '@/lib/types';
 
 const ACCESS_TYPES: AccessType[] = ['public', 'roadside', 'ask_owner'];
@@ -65,6 +67,11 @@ export default function AddTree() {
   const addTree = useStore((s) => s.addTree);
   const updateTree = useStore((s) => s.updateTree);
   const editing = useStore((s) => s.trees.find((tr) => tr.id === params.editId));
+  const seenVarieties = useStore((s) => s.seenVarieties);
+  const trees = useStore((s) => s.trees);
+  const reports = useStore((s) => s.reports);
+  const profile = useStore((s) => s.profile);
+  const showToast = useToast((s) => s.show);
 
   const [species, setSpecies] = useState<Species>(editing?.species ?? 'apple');
   const [variety, setVariety] = useState(editing?.variety ?? '');
@@ -123,13 +130,42 @@ export default function AddTree() {
       router.replace('/');
       return;
     }
+    // Read this *before* saving — addTree is what adds the variety to the set.
+    const named = fields.variety;
+    const known = discoveredVarieties({
+      seen: seenVarieties,
+      trees,
+      reports,
+      profileId: profile?.id,
+    });
+    const isNewVariety =
+      !!named && !known.some((v) => v.toLocaleLowerCase('cs') === named.toLocaleLowerCase('cs'));
+
     const tree = addTree({ lat, lng, ...fields });
-    if (tree) router.replace(`/tree/${tree.id}`);
-    else router.replace('/');
+    if (!tree) {
+      router.replace('/');
+      return;
+    }
+    // A variety nobody has pinned before is the more interesting news, so it
+    // wins the toast; the XP is on the button already.
+    if (isNewVariety && named) showToast(t2('toastDex', { name: named }), 'grid');
+    else showToast(t2('toastTree'), 'checkmark-circle');
+    router.replace(`/tree/${tree.id}`);
   };
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      {/* A form you opened by mistake should cost one tap to leave, so the
+          add flow gets a close control rather than a back arrow. */}
+      <ScreenHeader title={editing ? t2('saveChanges') : t2('addTreeTitle')} close={!editing} />
+      <ScrollView contentContainerStyle={styles.content}>
+      {!editing && (
+        <View style={[styles.placed, { backgroundColor: t.greenSoft }]}>
+          <Ionicons name="location" size={18} color={t.green} />
+          <Text style={{ color: t.green, fontSize: 13, flex: 1 }}>{t2('placedHere')}</Text>
+        </View>
+      )}
+
       {nearbyCount > 0 && !editing && (
         <View style={[styles.warning, { backgroundColor: t.amberSoft }]}>
           <Ionicons name="alert-circle" size={18} color={t.amber} />
@@ -139,28 +175,19 @@ export default function AddTree() {
         </View>
       )}
 
-      <Text style={[styles.label, { color: t.muted }]}>{t2('speciesLabel')}</Text>
+      <FieldLabel>{t2('speciesLabel')}</FieldLabel>
       <View style={styles.chipRow}>
         {SPECIES.map((sp) => (
-          <Pressable
+          <Chip
             key={sp}
+            label={speciesLabels[sp]}
+            selected={species === sp}
             onPress={() => setSpecies(sp)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: species === sp ? t.green : t.surface,
-                borderColor: species === sp ? t.green : t.line,
-              },
-            ]}>
-            <Text
-              style={{ color: species === sp ? '#FFF' : t.ink, fontSize: 13, fontWeight: '600' }}>
-              {speciesLabels[sp]}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
 
-      <Text style={[styles.label, { color: t.muted }]}>{t2('varietyLabel')}</Text>
+      <FieldLabel>{t2('varietyLabel')}</FieldLabel>
       <TextInput
         value={variety}
         onChangeText={setVariety}
@@ -169,7 +196,7 @@ export default function AddTree() {
         style={[styles.input, { backgroundColor: t.surface, color: t.ink, borderColor: t.line }]}
       />
 
-      <Text style={[styles.label, { color: t.muted }]}>{t2('notesLabel')}</Text>
+      <FieldLabel>{t2('notesLabel')}</FieldLabel>
       <TextInput
         value={description}
         onChangeText={setDescription}
@@ -184,55 +211,43 @@ export default function AddTree() {
         ]}
       />
 
-      <Text style={[styles.label, { color: t.muted }]}>{t2('accessLabel')}</Text>
+      <FieldLabel>{t2('accessLabel')}</FieldLabel>
       <View style={styles.chipRow}>
         {ACCESS_TYPES.map((a) => (
-          <Pressable
+          <Chip
             key={a}
+            label={accessLabels[a]}
+            selected={access === a}
             onPress={() => setAccess(a)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: access === a ? t.green : t.surface,
-                borderColor: access === a ? t.green : t.line,
-              },
-            ]}>
-            <Text style={{ color: access === a ? '#FFF' : t.ink, fontSize: 13, fontWeight: '600' }}>
-              {accessLabels[a]}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
       {access === 'ask_owner' && (
         <Text style={{ color: t.muted, fontSize: 13 }}>{t2('ownerHint')}</Text>
       )}
 
-      <Text style={[styles.label, { color: t.muted }]}>{t2('seasonLabel')}</Text>
+      <FieldLabel>{t2('seasonLabel')}</FieldLabel>
       <View style={styles.chipRow}>
-        {SEASONS.map((s, i) => (
-          <Pressable
-            key={s.label}
+        {SEASONS.map((season, i) => (
+          <Chip
+            key={season.label}
+            label={season.label}
+            selected={seasonIdx === i}
             onPress={() => setSeasonIdx(i)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: seasonIdx === i ? t.green : t.surface,
-                borderColor: seasonIdx === i ? t.green : t.line,
-              },
-            ]}>
-            <Text
-              style={{ color: seasonIdx === i ? '#FFF' : t.ink, fontSize: 13, fontWeight: '600' }}>
-              {s.label}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
 
-      <Text style={[styles.label, { color: t.muted }]}>{t2('photoLabel')}</Text>
+      <FieldLabel>{t2('photoLabel')}</FieldLabel>
       {photoUri ? (
         <View>
           <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
-          <Pressable onPress={() => setPhotoUri(null)} style={styles.removePhoto} hitSlop={8}>
+          <Pressable
+            onPress={() => setPhotoUri(null)}
+            style={styles.removePhoto}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t2('removePhoto')}>
             <Ionicons name="close-circle" size={26} color="#FFF" />
           </Pressable>
         </View>
@@ -245,17 +260,40 @@ export default function AddTree() {
         </Pressable>
       )}
 
-      <Button
-        label={editing ? t2('saveChanges') : t2('addToMap')}
-        onPress={save}
-        style={{ marginTop: 8 }}
-      />
-    </ScrollView>
+        <Pressable
+          onPress={save}
+          style={({ pressed }) => [
+            styles.save,
+            { backgroundColor: t.green, opacity: pressed ? 0.85 : 1 },
+          ]}>
+          <Text style={styles.saveLabel}>{editing ? t2('saveChanges') : t2('addToMap')}</Text>
+        </Pressable>
+        {!editing && (
+          <Text style={{ color: t.muted, fontSize: 12, textAlign: 'center' }}>
+            {t2('saveReward')}
+          </Text>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, gap: 10, paddingBottom: 48, maxWidth: 720, width: '100%', alignSelf: 'center' },
+  content: {
+    padding: 20,
+    gap: 10,
+    paddingBottom: 48,
+    maxWidth: 720,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  placed: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+  },
   warning: {
     flexDirection: 'row',
     gap: 8,
@@ -264,19 +302,30 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 6,
   },
-  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: 10 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15 },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+  },
   multiline: { minHeight: 84, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
-  photo: { width: '100%', height: 180, borderRadius: 12 },
+  photo: { width: '100%', height: 140, borderRadius: 12 },
   removePhoto: { position: 'absolute', top: 8, right: 8 },
   photoPicker: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderRadius: 12,
-    paddingVertical: 26,
+    paddingVertical: 24,
     alignItems: 'center',
     gap: 6,
   },
+  save: {
+    marginTop: 14,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  saveLabel: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

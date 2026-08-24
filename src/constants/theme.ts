@@ -7,6 +7,10 @@ export const palette = {
     ink: '#1C261D',
     muted: '#5A685C',
     line: '#DDE4DA',
+    /** Empty cells and list hairlines — a shade inside `line`. */
+    subtle: '#EDF1EC',
+    /** A control that is present but unavailable, e.g. `+` at the closest stop. */
+    disabled: '#C3CEC4',
     green: '#38754A',
     greenSoft: '#E4EFE2',
     red: '#B5443C',
@@ -20,6 +24,8 @@ export const palette = {
     ink: '#E7ECE5',
     muted: '#9CAA9E',
     line: '#2C362D',
+    subtle: '#232D24',
+    disabled: '#4A574B',
     green: '#6FB984',
     greenSoft: '#223626',
     red: '#E08A82',
