@@ -13,6 +13,26 @@ export const MODE_PITCH: Record<MapMode, number> = { go: 55, flat: 0 };
 export const GO_STYLE: StyleSpecification = {
   version: 8,
   glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  /**
+   * Without this the world simply stops at the horizon and everything above it
+   * is the page behind the canvas — a white band that gets enormous once the
+   * camera tilts past about 50°.
+   *
+   * The band above the horizon is the design's haze gradient (#D7EBB4 down to
+   * the #A6D96E ground), so the far ground dissolves into the horizon instead
+   * of ending on a hard line. Above the haze it opens into a blue drawn from
+   * the same family as the water, which is the only other sky-ish colour the
+   * palette has.
+   */
+  sky: {
+    'sky-color': '#8FD3F0',
+    'horizon-color': '#D7EBB4',
+    'fog-color': '#A6D96E',
+    'fog-ground-blend': 0.4,
+    'horizon-fog-blend': 0.7,
+    'sky-horizon-blend': 0.9,
+    'atmosphere-blend': 0.8,
+  },
   sources: {
     omt: {
       type: 'vector',
@@ -229,6 +249,17 @@ export const GO_STYLE: StyleSpecification = {
 export const FLAT_STYLE: StyleSpecification = {
   version: 8,
   glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  // The flat map opens top-down, but it can still be tilted by hand, so it
+  // gets the same treatment in its own paper-map palette.
+  sky: {
+    'sky-color': '#C5DDEE',
+    'horizon-color': '#E8E6DE',
+    'fog-color': '#F3F2ED',
+    'fog-ground-blend': 0.4,
+    'horizon-fog-blend': 0.7,
+    'sky-horizon-blend': 0.9,
+    'atmosphere-blend': 0.8,
+  },
   sources: {
     omt: {
       type: 'vector',

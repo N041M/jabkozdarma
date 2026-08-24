@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ContextCard, { type CardBar, type CardRight } from '@/components/context-card';
-import { ScaleBadge, StreakPill, ZoomStepper } from '@/components/map-chrome';
+import { CameraControls, ScaleBadge, StreakPill } from '@/components/map-chrome';
 import Rail, { type RailAction } from '@/components/rail';
 import TreeMap from '@/components/tree-map';
 import { ripenessColors, useTheme } from '@/constants/theme';
@@ -15,7 +15,7 @@ import { clusterTrees, walkMinutes } from '@/lib/clustering';
 import { streakFrom } from '@/lib/dex';
 import { formatKm, monthShort, t as t2 } from '@/lib/i18n';
 import { distanceMeters, latestReport, ripenessLabels, treeTitle } from '@/lib/labels';
-import { fetchWalkingRoute } from '@/lib/routing';
+import { fetchWalkingRoute, formatWalkTime } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import type { LatLng } from '@/lib/routing';
@@ -24,8 +24,11 @@ import { PICK_RADIUS_M, STOPS, clampStop, type ZoomStop } from '@/lib/zoom-ladde
 import { PRAGUE } from '@/components/tree-map.types';
 
 const DUPLICATE_RADIUS_M = 25;
-/** Two 40 px buttons and the hairline between them. */
-const STEPPER_H = 81;
+/** Three 40 px buttons and the two hairlines between them. */
+const CAMERA_CONTROLS_H = 122;
+/** How close to the picker counts as "the camera is already on you", as a
+ *  fraction of what the current rung shows. */
+const CENTRED_FRACTION = 0.08;
 /** Fallback until the rail reports its measured height. */
 const RAIL_H_GUESS = 349;
 
@@ -55,6 +58,7 @@ export default function MapScreen() {
   const [railHeight, setRailHeight] = useState(RAIL_H_GUESS);
   const [districtName, setDistrictName] = useState<string | null>(null);
   const [mapCentre, setMapCentre] = useState<LatLng>(PRAGUE);
+  const [livePitch, setLivePitch] = useState<number | undefined>(undefined);
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   // Read by the stop-change effect, which must not re-run on every fix.
   const userLocRef = useRef<LatLng | null>(null);
@@ -176,6 +180,13 @@ export default function MapScreen() {
   );
   const handlePlaceName = useCallback((name: string | null) => setDistrictName(name), []);
 
+  /** Whether the camera is already sitting on the picker. */
+  const centredOnUser = useMemo(() => {
+    if (!userLoc) return false;
+    const drift = distanceMeters(mapCentre.lat, mapCentre.lng, userLoc.lat, userLoc.lng);
+    return drift <= STOPS[stop].visibleWidthM * CENTRED_FRACTION;
+  }, [userLoc, mapCentre.lat, mapCentre.lng, stop]);
+
   const streak = useMemo(() => streakFrom(activeDays), [activeDays]);
 
   const counts = useMemo(() => {
@@ -226,6 +237,17 @@ export default function MapScreen() {
       setNotice(t2('needLocationToAdd'));
       return null;
     }
+  };
+
+  /**
+   * Go back to the picker. The camera is free to roam, so this is the way
+   * home; it also doubles as the discoverable way to grant location, since
+   * `ensureLocation` asks when there is no fix yet.
+   */
+  const locateMe = async () => {
+    setNotice(null);
+    const here = await ensureLocation();
+    if (here) setFlyTo({ ...here, key: Date.now() });
   };
 
   /** Trhám — the check-in. Writes a ripe report for the tree you're at. */
@@ -397,7 +419,7 @@ export default function MapScreen() {
             : t2('cardBestSub', {
                 n,
                 d: formatKm(d / 1000),
-                t: t2('minutes', { m: walkMinutes(d) }),
+                t: formatWalkTime(walkMinutes(d)),
               }),
         right: { kind: 'chevron', direction: 'forward' } as CardRight,
         onPress: flyToDistrict,
@@ -451,9 +473,10 @@ export default function MapScreen() {
         placeQuery={placeQuery}
         onPlaceName={handlePlaceName}
         onCenterChange={setMapCentre}
+        onPitchChange={setLivePitch}
       />
 
-      <ScaleBadge stop={stop} top={chromeTop} onPress={() => stepStop(1, true)} />
+      <ScaleBadge stop={stop} top={chromeTop} pitch={livePitch} onPress={() => stepStop(1, true)} />
       <StreakPill streak={streak} top={chromeTop} onPress={() => router.push('/dex')} />
 
       {stop === 3 && <DensityLegend top={chromeTop + 42} />}
@@ -487,10 +510,12 @@ export default function MapScreen() {
         </View>
       )}
 
-      <ZoomStepper
+      <CameraControls
         stop={stop}
         side={railSide}
-        bottom={railBottom + railHeight - STEPPER_H}
+        onLocate={locateMe}
+        centred={centredOnUser}
+        bottom={railBottom + railHeight - CAMERA_CONTROLS_H}
         onStep={(delta) => stepStop(delta, false)}
       />
 

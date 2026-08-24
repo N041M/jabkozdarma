@@ -40,6 +40,7 @@ export default function TreeMap({
   placeQuery,
   onPlaceName,
   onCenterChange,
+  onPitchChange,
 }: TreeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -63,22 +64,33 @@ export default function TreeMap({
     bearing: number;
   } | null>(null);
 
-  // The handlers are bound once, so live values go through refs.
+  // The map's handlers are bound once when it is built, so live props reach
+  // them through refs. The refs start at the mount values and are re-synced
+  // after each render — never during one, which the compiler forbids and
+  // which nothing here needs, since every reader is an event firing later.
   const onPressTreeRef = useRef(onPressTree);
-  onPressTreeRef.current = onPressTree;
   const stopRef = useRef(stop);
-  stopRef.current = stop;
   const onStopChangeRef = useRef(onStopChange);
-  onStopChangeRef.current = onStopChange;
   const onPressClusterRef = useRef(onPressCluster);
-  onPressClusterRef.current = onPressCluster;
   const onCenterChangeRef = useRef(onCenterChange);
-  onCenterChangeRef.current = onCenterChange;
+  const onPitchChangeRef = useRef(onPitchChange);
+  useEffect(() => {
+    onPressTreeRef.current = onPressTree;
+    stopRef.current = stop;
+    onStopChangeRef.current = onStopChange;
+    onPressClusterRef.current = onPressCluster;
+    onCenterChangeRef.current = onCenterChange;
+    onPitchChangeRef.current = onPitchChange;
+  });
   // Set while the camera is moving because *we* moved it, so the snap
   // handler does not fight its own animation.
   const drivingRef = useRef(false);
   const driveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const driveTokenRef = useRef(0);
+  // Set to the rung a pinch just landed on, so the camera effect can tell a
+  // gesture ("I am already where I want to be") from a button press ("take me
+  // to 250 m").
+  const gestureStopRef = useRef<ZoomStop | null>(null);
 
   /**
    * Run a camera move that the snap handler must ignore. `moveend` is the
@@ -138,6 +150,7 @@ export default function TreeMap({
         bearing: map.getBearing(),
       };
       onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
+      onPitchChangeRef.current?.(map.getPitch());
     });
 
     // Snapping. A pinch runs free while the fingers are down; when it
@@ -146,9 +159,18 @@ export default function TreeMap({
     // fight the finger; letting it land anywhere would lose the ladder.
     map.on('zoomend', () => {
       if (drivingRef.current) return;
-      const next = stopForZoom(map.getZoom(), map.getContainer().clientWidth, map.getCenter().lat);
-      if (next !== stopRef.current) onStopChangeRef.current?.(next);
-      else applyCamera(map, stopRef.current, mode, true);
+      const next = stopForZoom(
+        map.getZoom(),
+        map.getContainer().clientWidth,
+        map.getCenter().lat,
+        stopRef.current
+      );
+      // Landing on the same rung is left completely alone. Easing the zoom
+      // back to the rung's exact value on every pinch is what made the ladder
+      // feel like it was snatching the map away.
+      if (next === stopRef.current) return;
+      gestureStopRef.current = next;
+      onStopChangeRef.current?.(next);
     });
 
     // No NavigationControl: the app's own stepper is the zoom control now,
@@ -215,26 +237,46 @@ export default function TreeMap({
       map.remove();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapEpoch, mode]);
 
-  /** Ease the camera onto a rung. `settle` skips the animation for a nudge. */
-  function applyCamera(map: maplibregl.Map, next: ZoomStop, mapMode: string, settle = false) {
-    const width = map.getContainer().clientWidth || 390;
-    const zoom = zoomForStop(next, width, map.getCenter().lat);
+  /**
+   * Put the camera on a rung.
+   *
+   * `command` is a button or badge press — an explicit "take me to 250 m", so
+   * the camera flies to that rung's own zoom and tilt. `gesture` is a pinch
+   * that already carried the map there: the rung changes what the map *is*,
+   * but the zoom the fingers chose is left exactly where it is and only the
+   * tilt follows.
+   */
+  function applyCamera(
+    map: maplibregl.Map,
+    next: ZoomStop,
+    mapMode: string,
+    kind: 'command' | 'gesture'
+  ) {
     const pitch = mapMode === 'flat' ? 0 : STOPS[next].pitch;
-    if (settle && Math.abs(map.getZoom() - zoom) < 0.02 && Math.abs(map.getPitch() - pitch) < 0.5) {
+
+    if (kind === 'gesture') {
+      if (Math.abs(map.getPitch() - pitch) < 0.5) return;
+      drive(map, 400, () => map.easeTo({ pitch, duration: 400 }));
       return;
     }
-    const duration = settle ? 220 : 600;
-    drive(map, duration, () => map.easeTo({ zoom, pitch, duration }));
+
+    const width = map.getContainer().clientWidth || 390;
+    const zoom = zoomForStop(next, width, map.getCenter().lat);
+    if (Math.abs(map.getZoom() - zoom) < 0.02 && Math.abs(map.getPitch() - pitch) < 0.5) return;
+    drive(map, 600, () => map.easeTo({ zoom, pitch, duration: 600 }));
   }
 
   // Drive the camera whenever the ladder moves.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    applyCamera(map, stop, mode);
+    const fromGesture = gestureStopRef.current === stop;
+    gestureStopRef.current = null;
+    applyCamera(map, stop, mode, fromGesture ? 'gesture' : 'command');
+    // applyCamera is redeclared every render; depending on it would re-fly
+    // the camera on each one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stop, mapEpoch, mode]);
 
@@ -514,10 +556,27 @@ export default function TreeMap({
     const run = () => {
       if (cancelled) return;
       const point = map.project([placeQuery.lng, placeQuery.lat]);
-      // Search the whole viewport rather than a box around the point. At
-      // district scale the screen is about 2 km across, so any neighbourhood
-      // label on it is a fair answer for "where is this group?" — and place
-      // labels are sparse enough that a tight box usually finds nothing.
+      const canvas = map.getCanvas();
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+
+      // Only a group that is actually on screen can be named from what the
+      // map has drawn. Naming an off-screen one picks whatever label happens
+      // to be under the camera instead — a cluster 90 km away would be
+      // confidently labelled with the district you are standing in.
+      const margin = 0.15;
+      if (
+        point.x < -width * margin ||
+        point.x > width * (1 + margin) ||
+        point.y < -height * margin ||
+        point.y > height * (1 + margin)
+      ) {
+        onPlaceName(null);
+        return;
+      }
+
+      // Search the whole viewport rather than a tight box: place labels are
+      // sparse, and at district scale anything on screen is a fair answer.
       let features: maplibregl.MapGeoJSONFeature[] = [];
       try {
         features = map.queryRenderedFeatures({ layers: ['place-labels'] });
@@ -534,7 +593,10 @@ export default function TreeMap({
         const d = Math.hypot(projected.x - point.x, projected.y - point.y);
         if (!best || d < best.d) best = { name, d };
       }
-      onPlaceName(best?.name ?? null);
+      // ...but not a label from clear across the map: past this the name says
+      // more about the viewport than about the group.
+      const reach = Math.hypot(width, height) * 0.4;
+      onPlaceName(best && best.d <= reach ? best.name : null);
     };
     // Labels only exist once the tiles have actually drawn.
     if (map.isStyleLoaded()) run();

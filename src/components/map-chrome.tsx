@@ -19,7 +19,18 @@ const MONO = Platform.select({
 });
 
 /** `50 m · 58°`, top-left. Tapping it cycles the four zoom stops. */
-export function ScaleBadge({ stop, onPress, top }: { stop: ZoomStop; onPress: () => void; top: number }) {
+export function ScaleBadge({
+  stop,
+  onPress,
+  top,
+  pitch,
+}: {
+  stop: ZoomStop;
+  onPress: () => void;
+  top: number;
+  /** The camera's real tilt, which the ladder does not always own. */
+  pitch?: number;
+}) {
   const t = useTheme();
   return (
     <Pressable
@@ -31,7 +42,9 @@ export function ScaleBadge({ stop, onPress, top }: { stop: ZoomStop; onPress: ()
         styles.pill,
         { backgroundColor: t.surface, top, left: 12, opacity: pressed ? 0.8 : 1, shadowColor: '#000' },
       ]}>
-      <Text style={[styles.scaleText, { color: t.ink, fontFamily: MONO }]}>{scaleLabel(stop)}</Text>
+      <Text style={[styles.scaleText, { color: t.ink, fontFamily: MONO }]}>
+        {scaleLabel(stop, pitch)}
+      </Text>
     </Pressable>
   );
 }
@@ -65,19 +78,31 @@ export function StreakPill({
 }
 
 /**
- * The `+` / `−` pill. It mirrors to the opposite edge from the rail so the
- * two never fight for the same thumb.
+ * The camera cluster: zoom in, zoom out, and go back to yourself. It mirrors
+ * to the opposite edge from the rail so the two never fight for the same
+ * thumb.
+ *
+ * The recentre control matters because the camera is not welded to the
+ * avatar the way it is in the games this borrows from — you can pan anywhere,
+ * so there has to be a way back. The design handoff never specified one; this
+ * is the honest place for it, since everything else in this pill also moves
+ * the camera.
  */
-export function ZoomStepper({
+export function CameraControls({
   stop,
   onStep,
+  onLocate,
+  centred,
   bottom,
   side,
 }: {
   stop: ZoomStop;
   onStep: (delta: -1 | 1) => void;
+  onLocate: () => void;
+  /** True when the camera is already sitting on the picker. */
+  centred: boolean;
   bottom: number;
-  /** The side the *rail* is on; the stepper takes the other one. */
+  /** The side the *rail* is on; the cluster takes the other one. */
   side: RailSide;
 }) {
   const t = useTheme();
@@ -112,6 +137,21 @@ export function ZoomStepper({
         accessibilityLabel={t2('zoomOut')}
         style={({ pressed }) => [styles.stepButton, { opacity: pressed && canZoomOut ? 0.6 : 1 }]}>
         <Ionicons name="remove" size={22} color={canZoomOut ? t.green : t.disabled} />
+      </Pressable>
+      <View style={[styles.stepDivider, { backgroundColor: t.line }]} />
+      <Pressable
+        onPress={onLocate}
+        accessibilityRole="button"
+        accessibilityLabel={t2('locateMe')}
+        style={({ pressed }) => [styles.stepButton, { opacity: pressed ? 0.6 : 1 }]}>
+        {/* Filled once you have wandered off, hollow while the camera is
+            already on you — so the control reads as "there is somewhere to go
+            back to" rather than as another always-on button. */}
+        <Ionicons
+          name={centred ? 'locate-outline' : 'locate'}
+          size={21}
+          color={centred ? t.disabled : t.green}
+        />
       </Pressable>
     </View>
   );
