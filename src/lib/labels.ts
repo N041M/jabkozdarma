@@ -1,6 +1,7 @@
 import type { AccessType, FlagReason, RipenessState, Species, Tree, TreeReport } from './types';
 import { ripenessColors } from '@/constants/theme';
 import { monthShort, t } from './i18n';
+import { VERIFY, type ConfirmRejection, type PinRejection } from './verification';
 
 export const accessLabels: Record<AccessType, string> = {
   public: t('access_public'),
@@ -37,6 +38,51 @@ export const flagLabels: Record<FlagReason, string> = {
   wrong_info: t('flag_wrong_info'),
 };
 
+/**
+ * Why a write was refused, in words. Functions rather than the record the
+ * other labels use, because these interpolate the thresholds themselves —
+ * "within 60 m" has to move when `VERIFY.confirmRadiusM` does.
+ */
+export function pinRejectionLabel(reason: PinRejection): string {
+  switch (reason) {
+    case 'too_close':
+      return t('pin_too_close', { m: VERIFY.minSelfDistanceM });
+    case 'daily_limit':
+      return t('pin_daily_limit', { n: VERIFY.dailyPinLimit });
+    case 'out_of_area':
+      return t('pin_out_of_area');
+    case 'bad_fix':
+      return t('pin_bad_fix');
+    case 'bad_coords':
+      return t('pin_bad_coords');
+    case 'no_profile':
+      return t('pin_no_profile');
+  }
+}
+
+export function confirmRejectionLabel(reason: ConfirmRejection): string {
+  switch (reason) {
+    case 'too_far':
+      return t('confirm_too_far', { m: VERIFY.confirmRadiusM });
+    case 'own_tree':
+      return t('confirm_own_tree');
+    case 'already_confirmed':
+      return t('confirm_already_confirmed');
+    case 'no_fix':
+      return t('confirm_no_fix');
+    case 'bad_fix':
+      return t('confirm_bad_fix');
+    case 'daily_limit':
+      return t('confirm_daily_limit');
+    case 'no_such_tree':
+      return t('confirm_no_such_tree');
+    case 'no_profile':
+      return t('confirm_no_profile');
+    case 'sync_failed':
+      return t('confirm_sync_failed');
+  }
+}
+
 export function latestReport(treeId: string, reports: TreeReport[]): TreeReport | null {
   let latest: TreeReport | null = null;
   for (const r of reports) {
@@ -65,9 +111,3 @@ export function timeAgo(iso: string): string {
   return months === 1 ? t('monthAgo') : t('monthsAgo', { n: months });
 }
 
-/** Rough meters between two coordinates, good enough for duplicate warnings. */
-export function distanceMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const dLat = (bLat - aLat) * 111_320;
-  const dLng = (bLng - aLng) * 111_320 * Math.cos((aLat * Math.PI) / 180);
-  return Math.sqrt(dLat * dLat + dLng * dLng);
-}

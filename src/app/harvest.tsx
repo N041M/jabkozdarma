@@ -7,7 +7,8 @@ import { ScreenHeader } from '@/components/ui';
 import { ripenessColors, useTheme } from '@/constants/theme';
 import { walkMinutes } from '@/lib/clustering';
 import { formatKm, t as t2 } from '@/lib/i18n';
-import { accessLabels, distanceMeters, latestReport, treeTitle } from '@/lib/labels';
+import { distanceMeters } from '@/lib/geo';
+import { accessLabels, latestReport, treeTitle } from '@/lib/labels';
 import { formatWalkTime } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import { useKnownLocation } from '@/lib/use-location';
@@ -28,6 +29,13 @@ export default function HarvestScreen() {
 
   const [ripeOnly, setRipeOnly] = useState(true);
   const [nearOnly, setNearOnly] = useState(true);
+  /**
+   * On by default: this list is what sends somebody walking, and an
+   * unconfirmed pin is exactly the one that might not be there. The map
+   * still shows them, faded — this is the ranked list, so it holds the
+   * higher bar.
+   */
+  const [verifiedOnly, setVerifiedOnly] = useState(true);
 
   const rows = useMemo(() => {
     const list = trees
@@ -37,6 +45,7 @@ export default function HarvestScreen() {
         const distance = here ? distanceMeters(here.lat, here.lng, tree.lat, tree.lng) : null;
         return { tree, latest, distance };
       })
+      .filter((row) => (verifiedOnly ? row.tree.status !== 'unverified' : true))
       .filter((row) => (ripeOnly ? row.latest?.state === 'ripe' : true))
       .filter((row) => (nearOnly && row.distance !== null ? row.distance <= NEAR_RADIUS_M : true));
 
@@ -44,7 +53,7 @@ export default function HarvestScreen() {
     // rather than pretending to rank it.
     if (here) list.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
     return list;
-  }, [trees, reports, here, ripeOnly, nearOnly]);
+  }, [trees, reports, here, ripeOnly, nearOnly, verifiedOnly]);
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -61,6 +70,11 @@ export default function HarvestScreen() {
           label={t2('filterNear')}
           active={nearOnly}
           onPress={() => setNearOnly((v) => !v)}
+        />
+        <FilterChip
+          label={t2('filterVerified')}
+          active={verifiedOnly}
+          onPress={() => setVerifiedOnly((v) => !v)}
         />
       </View>
 

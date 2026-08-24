@@ -6,6 +6,7 @@ import {
   type Profile,
   type RipenessState,
   type Tree,
+  type TreeConfirmation,
   type TreeReport,
 } from './types';
 import type { NewTreeInput } from './store';
@@ -39,6 +40,9 @@ interface TreeRow {
   season_end: number | null;
   created_by: string;
   created_at: string;
+  accuracy_m: number | null;
+  confirmations: number | null;
+  trusted: boolean | null;
 }
 
 function photoUrl(storagePath: string): string {
@@ -49,11 +53,12 @@ export interface DbSnapshot {
   trees: Tree[];
   reports: TreeReport[];
   profiles: Profile[];
+  confirmations: TreeConfirmation[];
 }
 
 export async function fetchSnapshot(): Promise<DbSnapshot> {
   const client = sb();
-  const [treesRes, reportsRes, profilesRes, photosRes] = await Promise.all([
+  const [treesRes, reportsRes, profilesRes, photosRes, confirmsRes] = await Promise.all([
     client.rpc('trees_in_bbox', { min_lng: -180, min_lat: -90, max_lng: 180, max_lat: 90 }),
     client.from('reports').select('id, tree_id, user_id, state, note, created_at'),
     client.from('profiles').select('id, username, bio, created_at'),
@@ -61,9 +66,18 @@ export async function fetchSnapshot(): Promise<DbSnapshot> {
       .from('tree_photos')
       .select('tree_id, storage_path, created_at')
       .order('created_at', { ascending: false }),
+    client
+      .from('tree_confirmations')
+      .select('id, tree_id, user_id, distance_m, accuracy_m, created_at'),
   ]);
   const firstError = treesRes.error ?? reportsRes.error ?? profilesRes.error ?? photosRes.error;
   if (firstError) throw firstError;
+  // Confirmations are deliberately not part of that check. A client can ship
+  // before the operator runs migration-003, and a missing table must cost the
+  // verification layer, not the whole map.
+  if (confirmsRes.error) {
+    console.warn('[sync] confirmations unavailable — run migration-003:', confirmsRes.error);
+  }
 
   // newest photo per tree
   const photoByTree = new Map<string, string>();
@@ -87,6 +101,9 @@ export async function fetchSnapshot(): Promise<DbSnapshot> {
     photoUri: photoByTree.get(r.id) ?? null,
     createdBy: r.created_by,
     createdAt: r.created_at,
+    accuracyM: r.accuracy_m,
+    confirmations: r.confirmations ?? 0,
+    trusted: r.trusted ?? false,
   }));
 
   const reports: TreeReport[] = (reportsRes.data ?? []).map((r) => ({
@@ -105,7 +122,16 @@ export async function fetchSnapshot(): Promise<DbSnapshot> {
     createdAt: p.created_at,
   }));
 
-  return { trees, reports, profiles };
+  const confirmations: TreeConfirmation[] = (confirmsRes.data ?? []).map((c) => ({
+    id: c.id,
+    treeId: c.tree_id,
+    userId: c.user_id,
+    distanceM: c.distance_m,
+    accuracyM: c.accuracy_m,
+    createdAt: c.created_at,
+  }));
+
+  return { trees, reports, profiles, confirmations };
 }
 
 export async function fetchFavorites(userId: string): Promise<string[]> {
@@ -124,8 +150,13 @@ export async function insertTree(id: string, input: NewTreeInput, userId: string
     access: input.access,
     season_start: input.seasonStart,
     season_end: input.seasonEnd,
+    accuracy_m: input.accuracyM === null ? null : Math.round(input.accuracyM),
     created_by: userId,
   });
+  // The insert triggers raise `daily_limit`, `too_close`, `out_of_area` and
+  // `bad_fix` as check violations. The store maps them back to the same
+  // rejection codes `verification.ts` produces, so a refusal reads the same
+  // whether the client caught it or the database did.
   if (error) throw error;
 }
 
@@ -165,6 +196,27 @@ export async function deleteTree(id: string): Promise<void> {
   // reports/photos/flags/favorites cascade via their foreign keys
   const { error } = await sb().from('trees').delete().eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * Vouch for a tree from where you're standing. The distance is measured in
+ * Postgres against the stored location — the caller can't assert it — and
+ * the RPC returns the status the tree ended up with, which is `active` once
+ * enough distinct pickers have confirmed it.
+ */
+export async function confirmTree(
+  treeId: string,
+  here: { lat: number; lng: number },
+  accuracyM: number | null
+): Promise<Tree['status']> {
+  const { data, error } = await sb().rpc('confirm_tree', {
+    target: treeId,
+    lat: here.lat,
+    lng: here.lng,
+    accuracy: accuracyM === null ? null : Math.round(accuracyM),
+  });
+  if (error) throw error;
+  return (data as Tree['status']) ?? 'unverified';
 }
 
 export async function insertReport(report: TreeReport): Promise<void> {

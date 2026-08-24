@@ -32,6 +32,11 @@ bundle time, so a running server doesn't pick them up.
   table, not scattered through components.
 - **`src/lib/chrome.ts`** owns the bottom-edge measurements that every floating control
   positions against. Don't hardcode bottom offsets in screens.
+- **`src/lib/verification.ts`** holds the rules that decide whether a pin may be written
+  and whether the map trusts it. It's mirrored by
+  `supabase/migration-003-verification.sql`, which is the copy that counts — the client's
+  is there so local mode behaves like the backend. Change a threshold in one and change
+  it in the other.
 
 ## Conventions
 
@@ -67,7 +72,16 @@ These exist because of real failures. Don't remove them without understanding th
 - **The web map rebuilds itself if the style never loads.** Browsers stall
   `requestAnimationFrame` on hidden pages, and MapLibre defers its style load to a frame
   callback, so a map created while the page is hidden can come back blank forever.
-- **The store never blocks the UI on a sync failure.** Write errors log and move on.
+- **The store never blocks the UI on a sync failure.** Write errors log and move on. The
+  one exception is a write the verification triggers *refuse*: that pin isn't on the map
+  for anybody, so the store rolls the optimistic copy back and records why. A dropped
+  connection still keeps the pin.
+- **Nothing the client checks is enforcement.** The anon key is in the bundle, so a rule
+  that only exists in TypeScript is a rule a script skips. Rate limits, the service area,
+  confirmation distances, and tree status all live in Postgres triggers.
+- **Confirmation distance is measured server-side.** `confirm_tree()` compares the
+  caller's claimed position against the stored location. If the client ever computed it,
+  vouching for a tree from another city would be a one-line lie.
 
 ## Documentation
 

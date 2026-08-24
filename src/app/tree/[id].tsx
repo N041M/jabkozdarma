@@ -8,8 +8,9 @@ import { AccessBadge, Chip, ScreenHeader } from '@/components/ui';
 import { ripenessColors, useTheme } from '@/constants/theme';
 import { walkMinutes } from '@/lib/clustering';
 import { formatKm, t as t2 } from '@/lib/i18n';
+import { distanceMeters } from '@/lib/geo';
 import {
-  distanceMeters,
+  confirmRejectionLabel,
   flagLabels,
   latestReport,
   ripenessLabels,
@@ -21,6 +22,7 @@ import { fetchWalkingRoute, formatWalkTime } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import { useKnownLocation } from '@/lib/use-location';
+import { VERIFY, confirmationsRemaining } from '@/lib/verification';
 import type { FlagReason, RipenessState } from '@/lib/types';
 
 const RIPENESS_STATES: RipenessState[] = ['flowering', 'unripe', 'ripe', 'past', 'bare'];
@@ -39,6 +41,7 @@ export default function TreeDetail() {
   const profile = useStore((s) => s.profile);
   const favorites = useStore((s) => s.favorites);
   const addReport = useStore((s) => s.addReport);
+  const confirmTree = useStore((s) => s.confirmTree);
   const flagTree = useStore((s) => s.flagTree);
   const toggleFavorite = useStore((s) => s.toggleFavorite);
   const removeTree = useStore((s) => s.removeTree);
@@ -48,6 +51,8 @@ export default function TreeDetail() {
   const [flagged, setFlagged] = useState<FlagReason | null>(null);
   const [routing, setRouting] = useState<'idle' | 'busy' | 'error'>('idle');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const treeReports = useMemo(
     () =>
@@ -84,6 +89,49 @@ export default function TreeDetail() {
     if (!reward) return;
     if (reward.questCompleted) showToast(t2('toastQuest'), 'trophy');
     else showToast(t2('toastReport'), 'checkmark-circle');
+  };
+
+  /**
+   * Vouch for this tree. A confirmation is a claim about where you are
+   * *now*, so it takes a fresh fix rather than the one the screen loaded
+   * with, and the high-accuracy read is worth the extra second: the whole
+   * value of the vouch is that it came from the spot.
+   */
+  const confirm = async () => {
+    setConfirming(true);
+    setConfirmError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setConfirmError(t2('confirm_no_fix'));
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const { latitude, longitude, accuracy } = pos.coords;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        setConfirmError(t2('confirm_no_fix'));
+        return;
+      }
+      const result = await confirmTree(
+        tree.id,
+        { lat: latitude, lng: longitude },
+        Number.isFinite(accuracy) ? accuracy : null
+      );
+      if (!result.ok) {
+        setConfirmError(confirmRejectionLabel(result.reason));
+        return;
+      }
+      // Crossing the threshold is the news worth interrupting for; a
+      // confirmation that only moves the count gets the plain toast.
+      if (result.status === 'active') showToast(t2('toastVerified'), 'shield-checkmark');
+      else showToast(t2('toastConfirmed'), 'checkmark-circle');
+    } catch {
+      setConfirmError(t2('confirm_no_fix'));
+    } finally {
+      setConfirming(false);
+    }
   };
 
   const walkThere = async () => {
@@ -202,6 +250,64 @@ export default function TreeDetail() {
             <Text style={{ color: t.green, fontSize: 14, fontWeight: '600' }}>{t2('edit')}</Text>
           </Pressable>
         )}
+
+        <View style={[styles.section, { borderTopColor: t.line }]}>
+          <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('verifyTitle')}</Text>
+          {tree.status === 'unverified' ? (
+            <View style={[styles.verifyBox, { backgroundColor: t.amberSoft }]}>
+              <Text style={{ color: t.amber, fontSize: 14, lineHeight: 20 }}>
+                {t2('verifyUnverified')}
+              </Text>
+              {/* Zero left but still unverified means the count has arrived
+                  and the status has not caught up yet; claiming it needs one
+                  more picker would be a lie. */}
+              {confirmationsRemaining(tree) > 0 && (
+                <Text style={{ color: t.amber, fontSize: 14, lineHeight: 20 }}>
+                  {t2('verifyNeeds', { n: confirmationsRemaining(tree) })}
+                </Text>
+              )}
+            </View>
+          ) : tree.confirmations > 0 ? (
+            <View style={styles.verifyRow}>
+              <Ionicons name="shield-checkmark" size={18} color={t.green} />
+              <Text style={{ color: t.ink, fontSize: 14, flex: 1 }}>
+                {t2('verifyConfirmed', { n: tree.confirmations })}
+              </Text>
+            </View>
+          ) : (
+            // Active on nobody's vote: a seed pin, or one that predates the
+            // verification rules and was grandfathered in.
+            <Text style={{ color: t.muted, fontSize: 14 }}>{t2('verifyTrusted')}</Text>
+          )}
+
+          {/* Only a pin that still needs vouching gets a button. The author
+              can't vouch for their own, and letting anyone confirm anything
+              already verified would turn the reward into something you farm
+              across the map rather than earn at a tree. */}
+          {profile && tree.status === 'unverified' && profile.id !== tree.createdBy && (
+            <>
+              <Pressable
+                onPress={confirm}
+                disabled={confirming}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  {
+                    backgroundColor: t.greenSoft,
+                    opacity: confirming ? 0.6 : pressed ? 0.8 : 1,
+                  },
+                ]}>
+                <Ionicons name="location" size={18} color={t.green} />
+                <Text style={{ color: t.green, fontSize: 15, fontWeight: '700' }}>
+                  {confirming ? t2('verifyChecking') : t2('verifyCta')}
+                </Text>
+              </Pressable>
+              <Text style={{ color: t.muted, fontSize: 12 }}>
+                {t2('verifyHint', { m: VERIFY.confirmRadiusM })}
+              </Text>
+            </>
+          )}
+          {confirmError && <Text style={{ color: t.red, fontSize: 13 }}>{confirmError}</Text>}
+        </View>
 
         <View style={[styles.section, { borderTopColor: t.line }]}>
           <Text style={[styles.sectionTitle, { color: t.ink }]}>{t2('howIsIt')}</Text>
@@ -328,6 +434,16 @@ const styles = StyleSheet.create({
   walkLabel: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
   section: { borderTopWidth: 1, paddingTop: 16, marginTop: 6, gap: 10 },
+  verifyBox: { padding: 12, borderRadius: 10, gap: 6 },
+  verifyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  confirmButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   flagChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 },

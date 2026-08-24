@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ripenessColors } from '@/constants/theme';
 import { clusterTrees, densityAlpha, densityCells, walkMinutes } from '@/lib/clustering';
-import { distanceMeters, latestReport } from '@/lib/labels';
+import { distanceMeters } from '@/lib/geo';
+import { latestReport } from '@/lib/labels';
 import { MODE_PITCH, styleFor } from '@/lib/map-style';
 import { playerSpriteSvg } from '@/lib/player-sprite';
 import { treeSpriteSvg } from '@/lib/tree-sprite';

@@ -72,8 +72,14 @@ lišty**. For the measurements this depends on, see
 - **Add a tree** from the rail. The pin lands where you're standing, and then you fill
   in variety, notes, access, season, and photo. The form warns you if a pin already
   exists within 25 m.
+- **Verification**, so nobody can pin trees where there aren't any. A new pin starts
+  unverified: the map draws it faded and Sklizeň leaves it out of the walking list. Two
+  other pickers standing within 60 m of it make it real, and you can't confirm your own.
+  Retiring a pin takes the same corroboration, unless you're the one who added it. The
+  rules and the thresholds live in
+  [`src/lib/verification.ts`](src/lib/verification.ts).
 - **Tree detail**: photos, an access badge, the season, a report timeline, one-tap
-  ripeness reporting, favorites, and problem flags.
+  ripeness reporting, confirmation, favorites, and problem flags.
 - **In-app walking routes**: "Trasa pěšky" draws the route on the map using the FOSSGIS
   OSRM foot profile, with no handoff to an external map app.
 - **Jablkodex**: the retention layer. It tracks XP (15 for a report, 25 for a check-in,
@@ -91,8 +97,12 @@ device. It needs a server-side home once the backend is live.
 ## Connect the backend
 
 The integration is complete. It covers magic-link sign-in, shared trees, reports,
-favorites and flags, and photo uploads to Supabase Storage. The app runs in local mode
-until it finds credentials, and then switches over on its own.
+confirmations, favorites and flags, and photo uploads to Supabase Storage. The app runs
+in local mode until it finds credentials, and then switches over on its own.
+
+The write limits and the confirmation rules run in Postgres, because the anon key ships
+in the bundle and anything the client checks is advice a script can skip. For what the
+database enforces, see [Verification](supabase/SETUP.md#verification).
 
 For the dashboard steps, see [Supabase setup](supabase/SETUP.md). To start the map with
 the Prague pins instead of an empty database, run
@@ -113,9 +123,11 @@ src/
   components/     tree-map for native and web, rail, context card, map chrome,
                   toast, and shared UI
   lib/            types, the zustand and AsyncStorage store, zoom-ladder, chrome
-                  insets, clustering, Jablkodex progress, seed data, and the
-                  Supabase client
+                  insets, clustering, Jablkodex progress, verification rules,
+                  seed data, and the Supabase client
   constants/      theme palette
 supabase/
-  schema.sql      the full Postgres schema, with row-level security
+  schema.sql      tables, row-level security, and the viewport RPC
+  migration-003   the verification rules: write limits, confirmations, and
+                  the triggers that own tree status. Every project runs it.
 ```

@@ -14,7 +14,13 @@ import { CARD_GAP, RAIL_GAP, useBottomChrome } from '@/lib/chrome';
 import { clusterTrees, walkMinutes } from '@/lib/clustering';
 import { streakFrom } from '@/lib/dex';
 import { formatKm, monthShort, t as t2 } from '@/lib/i18n';
-import { distanceMeters, latestReport, ripenessLabels, treeTitle } from '@/lib/labels';
+import { distanceMeters } from '@/lib/geo';
+import {
+  latestReport,
+  pinRejectionLabel,
+  ripenessLabels,
+  treeTitle,
+} from '@/lib/labels';
 import { fetchWalkingRoute, formatWalkTime } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
@@ -48,12 +54,19 @@ export default function MapScreen() {
   const stop = useStore((s) => s.zoomStop);
   const setZoomStop = useStore((s) => s.setZoomStop);
   const railSide = useStore((s) => s.railSide);
+  const lastRejection = useStore((s) => s.lastRejection);
+  const clearRejection = useStore((s) => s.clearRejection);
   const activeDays = useStore((s) => s.activeDays);
   const addReport = useStore((s) => s.addReport);
   const showToast = useToast((s) => s.show);
 
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; key: number } | null>(null);
   const [userLoc, setUserLoc] = useState<LatLng | null>(null);
+  /**
+   * How good the last fix was, in metres. Evidence that travels with a pin
+   * and with a confirmation — see `src/lib/verification.ts`.
+   */
+  const [accuracyM, setAccuracyM] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [railHeight, setRailHeight] = useState(RAIL_H_GUESS);
   const [districtName, setDistrictName] = useState<string | null>(null);
@@ -72,9 +85,10 @@ export default function MapScreen() {
       watchRef.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.Balanced, distanceInterval: 5, timeInterval: 5000 },
         (pos) => {
-          const { latitude, longitude } = pos.coords;
+          const { latitude, longitude, accuracy } = pos.coords;
           if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
             setUserLoc({ lat: latitude, lng: longitude });
+            setAccuracyM(Number.isFinite(accuracy) ? accuracy : null);
           }
         }
       );
@@ -218,9 +232,28 @@ export default function MapScreen() {
     return false;
   };
 
-  /** Ask for a fix once, on demand — the watcher only runs once granted. */
-  const ensureLocation = async (): Promise<LatLng | null> => {
-    if (userLoc) return userLoc;
+  /**
+   * A pin the database refused has already been rolled back out of the map
+   * by the store; saying which rule stopped it is the part only a screen can
+   * do. Derived rather than copied into state — a rejection is already state
+   * somewhere, and mirroring it into an effect only invites the two to drift.
+   */
+  const banner = notice ?? (lastRejection ? pinRejectionLabel(lastRejection) : null);
+
+  const dismissBanner = () => {
+    setNotice(null);
+    clearRejection();
+  };
+
+  /**
+   * Ask for a fix once, on demand — the watcher only runs once granted.
+   * Returns the fix's radius with it: `setAccuracyM` won't be visible to a
+   * caller running in this same tick, so reading the state instead would
+   * record no accuracy for the very first pin, which is the one placed right
+   * after permission is granted.
+   */
+  const ensureLocation = async (): Promise<(LatLng & { accuracyM: number | null }) | null> => {
+    if (userLoc) return { ...userLoc, accuracyM };
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -230,9 +263,11 @@ export default function MapScreen() {
       const pos = await Location.getCurrentPositionAsync({});
       const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       if (!Number.isFinite(here.lat) || !Number.isFinite(here.lng)) return null;
+      const fixAccuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
       setUserLoc(here);
+      setAccuracyM(fixAccuracy);
       startWatching();
-      return here;
+      return { ...here, accuracyM: fixAccuracy };
     } catch {
       setNotice(t2('needLocationToAdd'));
       return null;
@@ -245,9 +280,9 @@ export default function MapScreen() {
    * `ensureLocation` asks when there is no fix yet.
    */
   const locateMe = async () => {
-    setNotice(null);
+    dismissBanner();
     const here = await ensureLocation();
-    if (here) setFlyTo({ ...here, key: Date.now() });
+    if (here) setFlyTo({ lat: here.lat, lng: here.lng, key: Date.now() });
   };
 
   /** Trhám — the check-in. Writes a ripe report for the tree you're at. */
@@ -266,7 +301,7 @@ export default function MapScreen() {
   /** Přidat — the pin lands where you are standing, no tap-to-place step. */
   const addHere = async () => {
     if (!requireProfile()) return;
-    setNotice(null);
+    dismissBanner();
     const here = await ensureLocation();
     if (!here) return;
     const nearbyCount = visibleTrees.filter(
@@ -274,7 +309,12 @@ export default function MapScreen() {
     ).length;
     router.push({
       pathname: '/add-tree',
-      params: { lat: String(here.lat), lng: String(here.lng), nearby: String(nearbyCount) },
+      params: {
+        lat: String(here.lat),
+        lng: String(here.lng),
+        nearby: String(nearbyCount),
+        accuracy: here.accuracyM === null ? '' : String(Math.round(here.accuracyM)),
+      },
     });
   };
 
@@ -497,11 +537,11 @@ export default function MapScreen() {
         </View>
       )}
 
-      {notice && (
+      {banner && (
         <View style={[styles.banner, { top: chromeTop + 42, backgroundColor: t.surface }]}>
-          <Text style={{ color: t.red, fontSize: 13, flex: 1 }}>{notice}</Text>
+          <Text style={{ color: t.red, fontSize: 13, flex: 1 }}>{banner}</Text>
           <Pressable
-            onPress={() => setNotice(null)}
+            onPress={dismissBanner}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={t2('dismiss')}>
