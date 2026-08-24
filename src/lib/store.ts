@@ -3,11 +3,13 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import * as db from './db';
+import { QUEST_TARGET, XP, dayKey, weekKey } from './dex';
 import type { MapMode } from './map-style';
 import type { LatLng } from './routing';
 import { seedProfile, seedReports, seedTrees } from './seed';
 import { isBackendConfigured, supabase } from './supabase';
 import type { FlagReason, Profile, RipenessState, Tree, TreeFlag, TreeReport } from './types';
+import type { ZoomStop } from './zoom-ladder';
 
 /**
  * Single source of truth for the UI, in two modes:
@@ -47,6 +49,57 @@ function preferredUsername(user: {
   return candidate.trim().replace(/\s+/g, ' ').slice(0, 30);
 }
 
+/**
+ * Everything a contribution moves at once: experience, the day's streak mark,
+ * the weekly quest, and the Jablkodex. Kept in one place so a report awarded
+ * from the map and one awarded from the detail screen can never drift apart.
+ */
+function applyProgress(
+  s: {
+    xp: number;
+    activeDays: string[];
+    questWeek: string;
+    questTrees: string[];
+    questRewarded: boolean;
+    seenVarieties: string[];
+  },
+  opts: { xp: number; variety?: string | null; questTreeId?: string }
+): { patch: Partial<AppState>; result: RewardResult } {
+  const today = dayKey();
+  const week = weekKey();
+
+  // A new week wipes the progress before this contribution is counted.
+  const fresh = s.questWeek !== week;
+  const baseTrees = fresh ? [] : s.questTrees;
+  const baseRewarded = fresh ? false : s.questRewarded;
+
+  // Only a tree this week has not seen yet moves the quest along.
+  const questTrees =
+    opts.questTreeId && !baseTrees.includes(opts.questTreeId)
+      ? [...baseTrees, opts.questTreeId]
+      : baseTrees;
+  const questCompleted = !baseRewarded && questTrees.length >= QUEST_TARGET;
+
+  const variety = opts.variety?.trim() || null;
+  const isNewVariety =
+    !!variety &&
+    !s.seenVarieties.some((v) => v.toLocaleLowerCase('cs') === variety.toLocaleLowerCase('cs'));
+
+  const gained = opts.xp + (questCompleted ? XP.quest : 0);
+
+  return {
+    patch: {
+      xp: s.xp + gained,
+      activeDays: s.activeDays.includes(today) ? s.activeDays : [...s.activeDays, today],
+      questWeek: week,
+      questTrees,
+      questRewarded: baseRewarded || questCompleted,
+      seenVarieties: isNewVariety ? [...s.seenVarieties, variety] : s.seenVarieties,
+    },
+    result: { xp: gained, questCompleted, newVariety: isNewVariety ? variety : null },
+  };
+}
+
 export interface NewTreeInput {
   lat: number;
   lng: number;
@@ -57,6 +110,16 @@ export interface NewTreeInput {
   seasonStart: number | null;
   seasonEnd: number | null;
   photoUri: string | null;
+}
+
+/** Which side of the screen the navigation rail sits on. */
+export type RailSide = 'right' | 'left';
+
+/** What a contribution earned, so the caller can raise the right toast. */
+export interface RewardResult {
+  xp: number;
+  questCompleted: boolean;
+  newVariety: string | null;
 }
 
 export interface ActiveRoute {
@@ -78,6 +141,25 @@ interface AppState {
   hydrated: boolean; // backend snapshot loaded
   mapMode: MapMode;
 
+  // Camera ladder & chrome placement. Both are preferences, both persist.
+  zoomStop: ZoomStop;
+  railSide: RailSide;
+
+  /**
+   * Gamification. Local-only for now, which means it is trivially editable
+   * on-device — it needs a server-side home once the backend is live.
+   */
+  xp: number;
+  activeDays: string[]; // 'YYYY-MM-DD' of days this picker contributed on
+  questWeek: string; // the Monday the quest progress belongs to
+  /**
+   * Distinct trees reported on this week. The quest is "report ripeness at
+   * three trees", so three reports on the same tree must not clear it.
+   */
+  questTrees: string[];
+  questRewarded: boolean;
+  seenVarieties: string[]; // varieties contributed to or reported on
+
   initBackend: () => void;
   signIn: (username: string) => void; // local mode only
   sendCode: (email: string, username: string) => Promise<void>;
@@ -86,12 +168,19 @@ interface AppState {
   addTree: (input: NewTreeInput) => Tree | null;
   updateTree: (id: string, patch: Partial<NewTreeInput>) => void;
   removeTree: (id: string) => void;
-  addReport: (treeId: string, state: RipenessState, note: string | null) => void;
+  addReport: (
+    treeId: string,
+    state: RipenessState,
+    note: string | null,
+    kind?: 'report' | 'checkIn'
+  ) => RewardResult | null;
   flagTree: (treeId: string, reason: FlagReason) => void;
   toggleFavorite: (treeId: string) => void;
   setRoute: (route: ActiveRoute) => void;
   clearRoute: () => void;
   setMapMode: (mode: MapMode) => void;
+  setZoomStop: (stop: ZoomStop) => void;
+  setRailSide: (side: RailSide) => void;
   renameProfile: (username: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   exportMyData: () => string;
@@ -111,6 +200,16 @@ export const useStore = create<AppState>()(
       activeRoute: null,
       hydrated: !isBackendConfigured,
       mapMode: 'go',
+
+      zoomStop: 1,
+      railSide: 'right',
+
+      xp: 0,
+      activeDays: [],
+      questWeek: weekKey(),
+      questTrees: [],
+      questRewarded: false,
+      seenVarieties: [],
 
       initBackend: () => {
         if (!supabase || backendInitialized) return;
@@ -197,7 +296,8 @@ export const useStore = create<AppState>()(
           createdAt: new Date().toISOString(),
           ...input,
         };
-        set((s) => ({ trees: [...s.trees, tree] }));
+        const { patch } = applyProgress(get(), { xp: XP.newTree, variety: input.variety });
+        set((s) => ({ trees: [...s.trees, tree], ...patch }));
 
         if (isBackendConfigured) {
           db.insertTree(tree.id, input, profile.id)
@@ -248,9 +348,9 @@ export const useStore = create<AppState>()(
         if (isBackendConfigured) db.deleteTree(id).catch(logSyncError('removeTree'));
       },
 
-      addReport: (treeId, state, note) => {
+      addReport: (treeId, state, note, kind = 'report') => {
         const profile = get().profile;
-        if (!profile) return;
+        if (!profile) return null;
         const report: TreeReport = {
           id: makeId(),
           treeId,
@@ -259,8 +359,18 @@ export const useStore = create<AppState>()(
           note: note?.trim() || null,
           createdAt: new Date().toISOString(),
         };
-        set((s) => ({ reports: [...s.reports, report] }));
+        // Reporting on a tree counts as meeting its variety, the same as
+        // pinning one — that is how the Jablkodex fills for people who
+        // mostly confirm other pickers' finds.
+        const variety = get().trees.find((t) => t.id === treeId)?.variety ?? null;
+        const { patch, result } = applyProgress(get(), {
+          xp: kind === 'checkIn' ? XP.checkIn : XP.report,
+          variety,
+          questTreeId: treeId,
+        });
+        set((s) => ({ reports: [...s.reports, report], ...patch }));
         if (isBackendConfigured) db.insertReport(report).catch(logSyncError('addReport'));
+        return result;
       },
 
       flagTree: (treeId, reason) => {
@@ -300,6 +410,8 @@ export const useStore = create<AppState>()(
       setRoute: (route) => set({ activeRoute: route }),
       clearRoute: () => set({ activeRoute: null }),
       setMapMode: (mode) => set({ mapMode: mode }),
+      setZoomStop: (stop) => set({ zoomStop: stop }),
+      setRailSide: (side) => set({ railSide: side }),
 
       renameProfile: async (username) => {
         const profile = get().profile;
@@ -327,6 +439,13 @@ export const useStore = create<AppState>()(
           reports: s.reports.filter((r) => r.userId !== profile.id),
           flags: s.flags.filter((f) => f.userId !== profile.id),
           favorites: [],
+          // progress is personal data too — it goes with the account
+          xp: 0,
+          activeDays: [],
+          questWeek: weekKey(),
+          questTrees: [],
+          questRewarded: false,
+          seenVarieties: [],
         }));
       },
 
@@ -342,6 +461,13 @@ export const useStore = create<AppState>()(
             reports: s.reports.filter((r) => r.userId === id),
             flags: s.flags.filter((f) => f.userId === id),
             favorites: s.favorites,
+            progress: {
+              xp: s.xp,
+              activeDays: s.activeDays,
+              questWeek: s.questWeek,
+              questTrees: s.questTrees,
+              seenVarieties: s.seenVarieties,
+            },
           },
           null,
           2
@@ -360,6 +486,14 @@ export const useStore = create<AppState>()(
         flags: s.flags,
         favorites: s.favorites,
         mapMode: s.mapMode,
+        zoomStop: s.zoomStop,
+        railSide: s.railSide,
+        xp: s.xp,
+        activeDays: s.activeDays,
+        questWeek: s.questWeek,
+        questTrees: s.questTrees,
+        questRewarded: s.questRewarded,
+        seenVarieties: s.seenVarieties,
       }),
       // Heals older persisted state that could brick the app: trees with
       // invalid coordinates crash the map, and full-size camera photos

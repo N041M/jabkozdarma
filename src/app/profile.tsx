@@ -11,9 +11,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button } from '@/components/ui';
+import { Button, Chip, FieldLabel, ScreenHeader } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
 import { getLangPreference, setLangPreference, t as t2 } from '@/lib/i18n';
 import { timeAgo, treeTitle } from '@/lib/labels';
@@ -22,7 +21,6 @@ import { isBackendConfigured } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const t = useTheme();
-  const insets = useSafeAreaInsets();
   const profile = useStore((s) => s.profile);
   const trees = useStore((s) => s.trees);
   const reports = useStore((s) => s.reports);
@@ -31,6 +29,8 @@ export default function ProfileScreen() {
   const signOut = useStore((s) => s.signOut);
   const sendCode = useStore((s) => s.sendCode);
   const signInWithGoogle = useStore((s) => s.signInWithGoogle);
+  const railSide = useStore((s) => s.railSide);
+  const setRailSide = useStore((s) => s.setRailSide);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -103,9 +103,9 @@ export default function ProfileScreen() {
   );
 
   return (
-    <ScrollView
-      style={{ backgroundColor: t.bg }}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}>
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <ScreenHeader title={t2('tabProfile')} />
+      <ScrollView contentContainerStyle={styles.content}>
       {!profile ? (
         <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.line }]}>
           <Ionicons name="person-circle-outline" size={44} color={t.green} />
@@ -321,7 +321,7 @@ export default function ProfileScreen() {
           <Button label={t2('signOut')} kind="danger" onPress={signOut} style={{ marginTop: 12 }} />
 
           <View style={[styles.langSection, { borderColor: t.line }]}>
-            <Text style={[styles.label, { color: t.muted }]}>{t2('yourData')}</Text>
+            <FieldLabel>{t2('yourData')}</FieldLabel>
             <Button label={t2('downloadData')} kind="secondary" onPress={downloadData} />
             <Text style={{ color: t.muted, fontSize: 12, lineHeight: 17 }}>
               {t2('deleteAccountWarning')}
@@ -350,7 +350,27 @@ export default function ProfileScreen() {
       )}
 
       <View style={[styles.langSection, { borderColor: t.line }]}>
-        <Text style={[styles.label, { color: t.muted }]}>{t2('languageLabel').toUpperCase()}</Text>
+        <FieldLabel>{t2('railSideLabel')}</FieldLabel>
+        <View style={styles.chipRow}>
+          {(
+            [
+              ['right', t2('railRight')],
+              ['left', t2('railLeft')],
+            ] as const
+          ).map(([value, label]) => (
+            <Chip
+              key={value}
+              label={label}
+              selected={railSide === value}
+              onPress={() => setRailSide(value)}
+            />
+          ))}
+        </View>
+        <Text style={{ color: t.muted, fontSize: 12, lineHeight: 17 }}>{t2('railSideHint')}</Text>
+      </View>
+
+      <View style={[styles.langSection, { borderColor: t.line }]}>
+        <FieldLabel>{t2('languageLabel').toUpperCase()}</FieldLabel>
         <View style={styles.chipRow}>
           {(
             [
@@ -358,26 +378,14 @@ export default function ProfileScreen() {
               ['en', 'English'],
               ['auto', t2('langAuto')],
             ] as const
-          ).map(([value, label]) => {
-            const active = langPref === value;
-            return (
-              <Pressable
-                key={value}
-                onPress={() => setLangPreference(value)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? t.green : t.surface,
-                    borderColor: active ? t.green : t.line,
-                  },
-                ]}>
-                <Text
-                  style={{ color: active ? '#FFF' : t.ink, fontSize: 13, fontWeight: '600' }}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
+          ).map(([value, label]) => (
+            <Chip
+              key={value}
+              label={label}
+              selected={langPref === value}
+              onPress={() => setLangPreference(value)}
+            />
+          ))}
         </View>
       </View>
 
@@ -396,7 +404,8 @@ export default function ProfileScreen() {
           {isBackendConfigured ? t2('backendConnected') : t2('localMode')}
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -424,9 +433,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   link: { fontSize: 14, fontWeight: '600' },
   langSection: { borderTopWidth: 1, paddingTop: 16, marginTop: 6, gap: 8 },
-  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
   backendRow: {
     flexDirection: 'row',
     alignItems: 'center',
