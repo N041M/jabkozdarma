@@ -165,6 +165,7 @@ const en = {
   actArea: 'Area',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
+  locateMe: 'Center on me',
   cycleScale: 'Change the zoom stop',
 
   // context card
@@ -382,6 +383,7 @@ const cs: typeof en = {
   actArea: 'Oblast',
   zoomIn: 'Přiblížit',
   zoomOut: 'Oddálit',
+  locateMe: 'Zpět na mě',
   cycleScale: 'Změnit úroveň přiblížení',
 
   cardNoTree: 'Žádný strom do {r} m',

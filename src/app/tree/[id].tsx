@@ -17,7 +17,7 @@ import {
   timeAgo,
   treeTitle,
 } from '@/lib/labels';
-import { fetchWalkingRoute } from '@/lib/routing';
+import { fetchWalkingRoute, formatWalkTime } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import { useKnownLocation } from '@/lib/use-location';
@@ -137,7 +137,7 @@ export default function TreeDetail() {
           <AccessBadge access={tree.access} />
           {distance !== null && (
             <Text style={{ color: t.muted, fontSize: 14 }}>
-              {formatKm(distance / 1000)} · {t2('minutes', { m: walkMinutes(distance) })}
+              {formatKm(distance / 1000)} · {formatWalkTime(walkMinutes(distance))}
             </Text>
           )}
           {tree.status === 'unverified' && (

@@ -37,4 +37,10 @@ export interface TreeMapProps {
    * which is only the same as what is near the picker until they pan.
    */
   onCenterChange?: (center: LatLng) => void;
+  /**
+   * The camera's real tilt. The ladder sets a tilt per rung, but the map can
+   * still be tilted by hand, so the scale badge reads this rather than the
+   * rung's nominal value.
+   */
+  onPitchChange?: (pitch: number) => void;
 }

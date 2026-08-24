@@ -8,6 +8,7 @@ import { ripenessColors, useTheme } from '@/constants/theme';
 import { walkMinutes } from '@/lib/clustering';
 import { formatKm, t as t2 } from '@/lib/i18n';
 import { accessLabels, distanceMeters, latestReport, treeTitle } from '@/lib/labels';
+import { formatWalkTime } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import { useKnownLocation } from '@/lib/use-location';
 
@@ -95,7 +96,7 @@ export default function HarvestScreen() {
                   {[
                     accessLabels[tree.access],
                     distance === null ? null : formatKm(distance / 1000),
-                    distance === null ? null : t2('minutes', { m: walkMinutes(distance) }),
+                    distance === null ? null : formatWalkTime(walkMinutes(distance)),
                   ]
                     .filter(Boolean)
                     .join(' · ')}

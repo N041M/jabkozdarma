@@ -32,12 +32,21 @@ export async function fetchWalkingRoute(from: LatLng, to: LatLng): Promise<Route
   };
 }
 
+/**
+ * Walking time, in hours once "1161 min" stops being a number anyone can
+ * picture. Shared so a distance shown on the map reads the same as the same
+ * distance shown on a list row.
+ */
+export function formatWalkTime(minutes: number): string {
+  const mins = Math.max(1, Math.round(minutes));
+  return mins >= 90
+    ? t('hoursMinutes', { h: Math.floor(mins / 60), m: mins % 60 })
+    : t('minutes', { m: mins });
+}
+
 export function formatRoute(distanceM: number, durationS: number): string {
-  const dist = formatKm(distanceM / 1000);
-  const mins = Math.max(1, Math.round(durationS / 60));
-  const time =
-    mins >= 90
-      ? t('hoursMinutes', { h: Math.floor(mins / 60), m: mins % 60 })
-      : t('minutes', { m: mins });
-  return t('routeFormat', { dist, time });
+  return t('routeFormat', {
+    dist: formatKm(distanceM / 1000),
+    time: formatWalkTime(durationS / 60),
+  });
 }
