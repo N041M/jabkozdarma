@@ -1,48 +1,24 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Chip, FieldLabel, ScreenHeader } from '@/components/ui';
 import { useTheme } from '@/constants/theme';
 import { monthShort, t as t2 } from '@/lib/i18n';
 import { accessLabels, pinRejectionLabel, speciesLabels } from '@/lib/labels';
 import { discoveredVarieties } from '@/lib/dex';
+import { capturePhoto, pickPhoto } from '@/lib/photo';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import { SPECIES, type AccessType, type Species } from '@/lib/types';
 
 const ACCESS_TYPES: AccessType[] = ['public', 'roadside', 'ask_owner'];
 
-/** Web-only: resize a picked image down to a phone-friendly JPEG data URI. */
-async function downscaleImage(uri: string, maxDim: number, quality: number): Promise<string> {
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new window.Image();
-      el.onload = () => resolve(el);
-      el.onerror = reject;
-      el.src = uri;
-    });
-    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-    if (scale === 1 && uri.length < 400_000) return uri;
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-    canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', quality);
-  } catch {
-    return uri; // worst case keep the original
-  }
+/** A route param that is a number, or null for the empty string the map sends. */
+function numberOrNull(raw: string | undefined): number | null {
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) ? n : null;
 }
 
 const SEASONS: { label: string; start: number | null; end: number | null }[] = [
@@ -62,6 +38,7 @@ export default function AddTree() {
     lng?: string;
     nearby?: string;
     accuracy?: string;
+    placed?: string;
     editId?: string;
   }>();
 
@@ -72,6 +49,7 @@ export default function AddTree() {
   const trees = useStore((s) => s.trees);
   const reports = useStore((s) => s.reports);
   const profile = useStore((s) => s.profile);
+  const pendingPhoto = useStore((s) => s.pendingPhoto);
   const showToast = useToast((s) => s.show);
 
   const [species, setSpecies] = useState<Species>(editing?.species ?? 'apple');
@@ -83,28 +61,35 @@ export default function AddTree() {
     const idx = SEASONS.findIndex((s) => s.start === editing.seasonStart);
     return idx === -1 ? 0 : idx;
   });
-  const [photoUri, setPhotoUri] = useState<string | null>(editing?.photoUri ?? null);
+  // A plain read, never a write: clearing the slot here would be a store
+  // update during render. The map sets it on every add, so it can't go stale,
+  // and editing an existing pin must not inherit it.
+  const [photoUri, setPhotoUri] = useState<string | null>(() =>
+    params.editId ? (editing?.photoUri ?? null) : pendingPhoto
+  );
   const [refused, setRefused] = useState<string | null>(null);
 
   const nearbyCount = Number(params.nearby ?? 0);
 
-  const pickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-      base64: Platform.OS === 'web',
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    if (Platform.OS !== 'web') {
-      setPhotoUri(asset.uri);
-      return;
-    }
-    // Web: downscale before it goes anywhere. A raw phone photo as a
-    // multi-MB data URI would blow the localStorage quota and freeze the
-    // app re-serializing state on every change.
-    const source = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-    setPhotoUri(await downscaleImage(source, 1280, 0.72));
+  /**
+   * The evidence the aim carried, as the map measured it.
+   *
+   * `Number('')` is 0, and an empty string is what the map sends when it has
+   * nothing to report — so coercing either of these blind would claim a
+   * perfect zero-metre fix, and a pin placed exactly underfoot, at precisely
+   * the moment there was no reading at all.
+   */
+  const accuracyM = numberOrNull(params.accuracy);
+  const placedDistanceM = numberOrNull(params.placed);
+
+  const shoot = async () => {
+    const uri = await capturePhoto();
+    if (uri) setPhotoUri(uri);
+  };
+
+  const choose = async () => {
+    const uri = await pickPhoto();
+    if (uri) setPhotoUri(uri);
   };
 
   const save = () => {
@@ -143,14 +128,11 @@ export default function AddTree() {
     const isNewVariety =
       !!named && !known.some((v) => v.toLocaleLowerCase('cs') === named.toLocaleLowerCase('cs'));
 
-    // `Number('')` is 0, and an empty string is what the map sends when it
-    // has no fix radius to report — so coercing it blind would claim a
-    // perfect zero-metre fix at exactly the moment there is no reading.
-    const accuracy = params.accuracy ? Number(params.accuracy) : NaN;
     const result = addTree({
       lat,
       lng,
-      accuracyM: Number.isFinite(accuracy) ? accuracy : null,
+      accuracyM,
+      placedDistanceM,
       ...fields,
     });
     if (!result.ok) {
@@ -179,10 +161,32 @@ export default function AddTree() {
           add flow gets a close control rather than a back arrow. */}
       <ScreenHeader title={editing ? t2('saveChanges') : t2('addTreeTitle')} close={!editing} />
       <ScrollView contentContainerStyle={styles.content}>
+      {/* Where the pin actually went, and how much the app can say about it.
+          Amber when nothing backs the aim but the picker's own eye: the pin
+          is welcome either way, but that is worth one glance before saving. */}
       {!editing && (
-        <View style={[styles.placed, { backgroundColor: t.greenSoft }]}>
-          <Ionicons name="location" size={18} color={t.green} />
-          <Text style={{ color: t.green, fontSize: 13, flex: 1 }}>{t2('placedHere')}</Text>
+        <View
+          style={[
+            styles.placed,
+            { backgroundColor: placedDistanceM === null ? t.amberSoft : t.greenSoft },
+          ]}>
+          <Ionicons
+            name="location"
+            size={18}
+            color={placedDistanceM === null ? t.amber : t.green}
+          />
+          <Text
+            style={{
+              color: placedDistanceM === null ? t.amber : t.green,
+              fontSize: 13,
+              flex: 1,
+            }}>
+            {placedDistanceM === null
+              ? t2('placedByHand')
+              : placedDistanceM < 3
+                ? t2('placedAtYou')
+                : t2('placedNear', { n: Math.round(placedDistanceM) })}
+          </Text>
         </View>
       )}
 
@@ -199,6 +203,52 @@ export default function AddTree() {
         <View style={[styles.warning, { backgroundColor: t.redSoft }]}>
           <Ionicons name="close-circle" size={18} color={t.red} />
           <Text style={{ color: t.red, fontSize: 13, flex: 1 }}>{refused}</Text>
+        </View>
+      )}
+
+      {/* The photo leads. It is the one thing you can only capture at the
+          tree, it identifies the find better than any chip, and when the map
+          shot it on the way in this is where you confirm it came out. */}
+      <FieldLabel>{t2('photoLabel')}</FieldLabel>
+      {photoUri ? (
+        <View>
+          <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
+          <Pressable
+            onPress={() => setPhotoUri(null)}
+            style={styles.removePhoto}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t2('removePhoto')}>
+            <Ionicons name="close-circle" size={26} color="#FFF" />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.photoRow}>
+          <Pressable
+            onPress={shoot}
+            accessibilityRole="button"
+            accessibilityLabel={t2('takePhoto')}
+            style={({ pressed }) => [
+              styles.photoPicker,
+              styles.photoPrimary,
+              { borderColor: t.green, backgroundColor: t.greenSoft, opacity: pressed ? 0.8 : 1 },
+            ]}>
+            <Ionicons name="camera" size={26} color={t.green} />
+            <Text style={{ color: t.green, fontSize: 13, fontWeight: '700' }}>
+              {t2('takePhoto')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={choose}
+            accessibilityRole="button"
+            accessibilityLabel={t2('choosePhoto')}
+            style={({ pressed }) => [
+              styles.photoPicker,
+              { borderColor: t.line, backgroundColor: t.surface, opacity: pressed ? 0.8 : 1 },
+            ]}>
+            <Ionicons name="images-outline" size={26} color={t.muted} />
+            <Text style={{ color: t.muted, fontSize: 13 }}>{t2('choosePhoto')}</Text>
+          </Pressable>
         </View>
       )}
 
@@ -265,28 +315,6 @@ export default function AddTree() {
         ))}
       </View>
 
-      <FieldLabel>{t2('photoLabel')}</FieldLabel>
-      {photoUri ? (
-        <View>
-          <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
-          <Pressable
-            onPress={() => setPhotoUri(null)}
-            style={styles.removePhoto}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t2('removePhoto')}>
-            <Ionicons name="close-circle" size={26} color="#FFF" />
-          </Pressable>
-        </View>
-      ) : (
-        <Pressable
-          onPress={pickPhoto}
-          style={[styles.photoPicker, { borderColor: t.line, backgroundColor: t.surface }]}>
-          <Ionicons name="camera-outline" size={26} color={t.muted} />
-          <Text style={{ color: t.muted, fontSize: 13 }}>{t2('addPhoto')}</Text>
-        </Pressable>
-      )}
-
         <Pressable
           onPress={save}
           style={({ pressed }) => [
@@ -345,14 +373,19 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photo: { width: '100%', height: 140, borderRadius: 12 },
   removePhoto: { position: 'absolute', top: 8, right: 8 },
+  photoRow: { flexDirection: 'row', gap: 10 },
   photoPicker: {
+    flex: 1,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 24,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
   },
+  /** The camera is the intended path, so it reads as a real control. */
+  photoPrimary: { borderStyle: 'solid' },
   save: {
     marginTop: 14,
     paddingVertical: 13,

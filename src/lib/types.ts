@@ -30,11 +30,26 @@ export interface Tree {
   createdBy: string; // profile id
   createdAt: string; // ISO
   /**
-   * Radius of the fix the pin was placed from, in metres. Evidence, not
-   * proof — a device can claim anything — but a pin dropped from a 2 km
-   * cell-tower fix is worth less than one dropped from a 6 m GPS fix.
+   * Radius of the fix its author had when they placed it, in metres. Evidence
+   * about the author, not about the pin — the pin is aimed by hand — but a
+   * 2 km cell-tower fix says nobody can vouch for having stood anywhere near
+   * it, and a 6 m GPS fix says they could.
    */
   accuracyM: number | null;
+  /**
+   * How far the author stood from the pin when they aimed it, in metres.
+   *
+   * The pin is placed against the map rather than dropped on the fix, so this
+   * is what carries the claim that somebody was actually there. Null when
+   * that claim can't be made — no fix, or one too vague to mean anything —
+   * which costs the pin nothing at the door: it still needs the same two
+   * confirmations as every other pin before the map trusts it.
+   *
+   * The distance and not the position. It answers the only question the map
+   * has about where the author was standing, and storing the point itself
+   * would be keeping a picker's movements to answer it.
+   */
+  placedDistanceM: number | null;
   /** Distinct pickers who have confirmed this tree, the author excluded. */
   confirmations: number;
   /**

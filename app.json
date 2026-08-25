@@ -32,6 +32,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Umo\u017en\u00ed p\u0159idat k stromu fotku z galerie.",
+          "cameraPermission": "Umo\u017en\u00ed vyfotit strom, kter\u00fd p\u0159id\u00e1v\u00e1te na mapu."
+        }
       ]
     ],
     "experiments": {

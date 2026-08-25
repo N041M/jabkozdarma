@@ -41,6 +41,8 @@ export default function TreeMap({
   placeQuery,
   onPlaceName,
   onCenterChange,
+  trackCenter = false,
+  overhead = false,
   onPitchChange,
 }: TreeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +76,8 @@ export default function TreeMap({
   const onStopChangeRef = useRef(onStopChange);
   const onPressClusterRef = useRef(onPressCluster);
   const onCenterChangeRef = useRef(onCenterChange);
+  const trackCenterRef = useRef(trackCenter);
+  const overheadRef = useRef(overhead);
   const onPitchChangeRef = useRef(onPitchChange);
   useEffect(() => {
     onPressTreeRef.current = onPressTree;
@@ -81,6 +85,8 @@ export default function TreeMap({
     onStopChangeRef.current = onStopChange;
     onPressClusterRef.current = onPressCluster;
     onCenterChangeRef.current = onCenterChange;
+    trackCenterRef.current = trackCenter;
+    overheadRef.current = overhead;
     onPitchChangeRef.current = onPitchChange;
   });
   // Set while the camera is moving because *we* moved it, so the snap
@@ -152,6 +158,20 @@ export default function TreeMap({
       };
       onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
       onPitchChangeRef.current?.(map.getPitch());
+    });
+
+    // While a pin is being aimed the centre *is* the answer, so it is
+    // reported as the map moves rather than once it stops. Coalesced to one
+    // frame: a drag fires `move` faster than React can render, and every one
+    // of those would otherwise be a render of the whole map screen.
+    let centreFrame = 0;
+    map.on('move', () => {
+      if (!trackCenterRef.current || centreFrame) return;
+      centreFrame = requestAnimationFrame(() => {
+        centreFrame = 0;
+        const c = map.getCenter();
+        onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
+      });
     });
 
     // Snapping. A pinch runs free while the fingers are down; when it
@@ -228,6 +248,7 @@ export default function TreeMap({
 
     return () => {
       destroyed = true;
+      if (centreFrame) cancelAnimationFrame(centreFrame);
       clearTimeout(bootCheck);
       if (driveTimerRef.current) clearTimeout(driveTimerRef.current);
       document.removeEventListener('visibilitychange', recoverIfDead);
@@ -255,7 +276,10 @@ export default function TreeMap({
     mapMode: string,
     kind: 'command' | 'gesture'
   ) {
-    const pitch = mapMode === 'flat' ? 0 : STOPS[next].pitch;
+    // A rung change during placement must not tilt the map back up under the
+    // crosshair, so the override is read here too rather than only in the
+    // effect that owns it.
+    const pitch = overheadRef.current || mapMode === 'flat' ? 0 : STOPS[next].pitch;
 
     if (kind === 'gesture') {
       if (Math.abs(map.getPitch() - pitch) < 0.5) return;
@@ -280,6 +304,21 @@ export default function TreeMap({
     // the camera on each one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stop, mapEpoch, mode]);
+
+  // Aiming happens from directly above: the rung's tilt flattens while the
+  // crosshair is up and comes back when it goes away. Pitch only — the zoom
+  // the picker chose to aim at is theirs to keep, which is why this doesn't
+  // go through `applyCamera`.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const pitch = overheadRef.current || mode === 'flat' ? 0 : STOPS[stopRef.current].pitch;
+    if (Math.abs(map.getPitch() - pitch) < 0.5) return;
+    // `stop` is read through its ref on purpose: a rung change is the other
+    // effect's job, and depending on it here would have the two fight over
+    // the same camera.
+    drive(map, 400, () => map.easeTo({ pitch, duration: 400 }));
+  }, [overhead, mode, mapEpoch]);
 
   // Individual tree sprites — the 50 m and 250 m stops only. Above those a
   // sprite per tree stops carrying information and starts costing frames.

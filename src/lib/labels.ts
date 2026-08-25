@@ -51,6 +51,8 @@ export function pinRejectionLabel(reason: PinRejection): string {
       return t('pin_daily_limit', { n: VERIFY.dailyPinLimit });
     case 'out_of_area':
       return t('pin_out_of_area');
+    case 'placed_too_far':
+      return t('pin_placed_too_far', { m: VERIFY.maxPlacementM });
     case 'bad_fix':
       return t('pin_bad_fix');
     case 'bad_coords':
