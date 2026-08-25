@@ -20,7 +20,7 @@ const en = {
   legendRipe: 'Ripe now',
   legendUnripe: 'Unripe',
   legendNone: 'No report',
-  needLocationToAdd: 'Adding a tree needs your location, so pins land where you actually are.',
+  noLocation: 'Location is off, so the map can’t show where you are or measure distances from you.',
   cancel: 'Cancel',
   routeTo: 'to {label}',
   routeFormat: '{dist} · {time} walk',
@@ -88,6 +88,7 @@ const en = {
   pin_bad_coords: 'The app could not work out where that pin goes.',
   pin_bad_fix: 'Your position is too vague to place a pin. Try again with more sky overhead.',
   pin_out_of_area: 'JabkoZdarma maps Czechia, and that pin lands outside it.',
+  pin_placed_too_far: 'A pin has to land within {m} m of where you are standing.',
   pin_too_close: 'You already have a pin within {m} m. Edit that one instead of adding a second.',
   pin_daily_limit: 'That is {n} pins today, which is the daily limit. More tomorrow.',
   pin_no_profile: 'Sign in to add a tree.',
@@ -120,7 +121,8 @@ const en = {
   seasonLabel: 'WHEN IS IT RIPE?',
   notSure: 'Not sure',
   photoLabel: 'PHOTO',
-  addPhoto: 'Add a photo of the tree',
+  takePhoto: 'Take a photo',
+  choosePhoto: 'From library',
   saveChanges: 'Save changes',
   addToMap: 'Add tree to the map',
 
@@ -194,6 +196,7 @@ const en = {
   tabDex: 'Jablkodex',
   actPick: 'Pick',
   actAdd: 'Add',
+  actPlace: 'Place',
   actRoute: 'Route',
   actDistrict: 'District',
   actArea: 'Area',
@@ -256,8 +259,23 @@ const en = {
   varieties: 'Varieties',
   notFound: 'Not found',
 
+  // placing a pin
+  placeFrom: '{n} m from you',
+  placeAtYou: 'Right where you are standing',
+  placeDragHint: 'Drag the map until the crosshair sits on the trunk, then tap Place.',
+  placeAccuracy: 'Your fix is good to about {n} m — drag the map to do better.',
+  placeVagueFix:
+    'Your position is only good to about {n} m, so this counts as aimed by hand.',
+  placeNoFix: 'Aiming by hand',
+  placeNoFixSub: 'No position of your own — put the crosshair on the tree yourself.',
+  placeTooFar: 'Too far away. A pin has to land within {m} m of where you are standing.',
+  placeDuplicate:
+    'There {count, plural, one {is already a pin} other {are already # pins}} within {r} m of the crosshair.',
+
   // add a tree
-  placedHere: 'The pin lands where you are standing.',
+  placedAtYou: 'The pin sits where you were standing.',
+  placedNear: 'The pin sits {n} m from where you were standing.',
+  placedByHand: 'You aimed this pin by hand, without a position of your own.',
   saveReward: 'A new tree earns you 40 XP',
 
   // profile
@@ -284,7 +302,7 @@ const cs: typeof en = {
   legendRipe: 'Zralé teď',
   legendUnripe: 'Nezralé',
   legendNone: 'Bez hlášení',
-  needLocationToAdd: 'Pro přidání stromu je potřeba vaše poloha, aby špendlík seděl tam, kde opravdu jste.',
+  noLocation: 'Poloha je vypnutá, takže mapa neukáže, kde jste, ani nezměří vzdálenosti od vás.',
   cancel: 'Zrušit',
   routeTo: 'cíl: {label}',
   routeFormat: '{dist} · {time} pěšky',
@@ -347,6 +365,7 @@ const cs: typeof en = {
   pin_bad_coords: 'Nepodařilo se určit, kam špendlík patří.',
   pin_bad_fix: 'Vaše poloha je moc nepřesná na umístění špendlíku. Zkuste to pod otevřeným nebem.',
   pin_out_of_area: 'JabkoZdarma mapuje Česko a tenhle špendlík míří mimo.',
+  pin_placed_too_far: 'Špendlík musí padnout do {m} m od místa, kde stojíte.',
   pin_too_close: 'Do {m} m už jeden špendlík máte. Upravte radši ten místo přidání druhého.',
   pin_daily_limit: 'To je {n} špendlíků za dnešek, což je denní strop. Zítra zase.',
   pin_no_profile: 'Pro přidání stromu se přihlaste.',
@@ -378,7 +397,8 @@ const cs: typeof en = {
   seasonLabel: 'KDY DOZRÁVÁ?',
   notSure: 'Nevím',
   photoLabel: 'FOTKA',
-  addPhoto: 'Přidat fotku stromu',
+  takePhoto: 'Vyfotit',
+  choosePhoto: 'Z galerie',
   saveChanges: 'Uložit změny',
   addToMap: 'Přidat strom na mapu',
 
@@ -446,6 +466,7 @@ const cs: typeof en = {
   tabDex: 'Jablkodex',
   actPick: 'Trhám',
   actAdd: 'Přidat',
+  actPlace: 'Umístit',
   actRoute: 'Trasa',
   actDistrict: 'Čtvrť',
   actArea: 'Oblast',
@@ -507,7 +528,20 @@ const cs: typeof en = {
   varieties: 'Odrůdy',
   notFound: 'Nenalezeno',
 
-  placedHere: 'Špendík padne tam, kde právě stojíte.',
+  placeFrom: '{n} m od vás',
+  placeAtYou: 'Přesně tam, kde stojíte',
+  placeDragHint: 'Posuňte mapu, ať je kříž na kmeni, a ťukněte na Umístit.',
+  placeAccuracy: 'Vaše poloha je přesná zhruba na {n} m — mapou to zvládnete lépe.',
+  placeVagueFix: 'Vaše poloha je přesná jen zhruba na {n} m, takže to platí za ruční zamíření.',
+  placeNoFix: 'Míříte ručně',
+  placeNoFixSub: 'Bez vlastní polohy — zamiřte kříž na strom sami.',
+  placeTooFar: 'Moc daleko. Špendlík musí padnout do {m} m od místa, kde stojíte.',
+  placeDuplicate:
+    'Do {r} m od kříže {count, plural, one {už je jeden špendlík} few {už jsou # špendlíky} other {už je # špendlíků}}.',
+
+  placedAtYou: 'Špendlík sedí tam, kde jste stáli.',
+  placedNear: 'Špendlík sedí {n} m od místa, kde jste stáli.',
+  placedByHand: 'Tenhle špendlík jste zamířili ručně, bez vlastní polohy.',
   saveReward: 'Za nový strom získáte 40 XP',
 
   railSideLabel: 'STRANA LIŠTY',

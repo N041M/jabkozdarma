@@ -41,6 +41,7 @@ interface TreeRow {
   created_by: string;
   created_at: string;
   accuracy_m: number | null;
+  placed_distance_m: number | null;
   confirmations: number | null;
   trusted: boolean | null;
 }
@@ -102,6 +103,9 @@ export async function fetchSnapshot(): Promise<DbSnapshot> {
     createdBy: r.created_by,
     createdAt: r.created_at,
     accuracyM: r.accuracy_m,
+    // Undefined until the operator runs migration-004, which is a backend
+    // that never recorded one — the same thing null already means.
+    placedDistanceM: r.placed_distance_m ?? null,
     confirmations: r.confirmations ?? 0,
     trusted: r.trusted ?? false,
   }));
@@ -151,12 +155,19 @@ export async function insertTree(id: string, input: NewTreeInput, userId: string
     season_start: input.seasonStart,
     season_end: input.seasonEnd,
     accuracy_m: input.accuracyM === null ? null : Math.round(input.accuracyM),
+    placed_distance_m:
+      input.placedDistanceM === null ? null : Math.round(input.placedDistanceM),
     created_by: userId,
   });
   // The insert triggers raise `daily_limit`, `too_close`, `out_of_area` and
-  // `bad_fix` as check violations. The store maps them back to the same
-  // rejection codes `verification.ts` produces, so a refusal reads the same
-  // whether the client caught it or the database did.
+  // `placed_too_far` as check violations. The store maps them back to the
+  // same rejection codes `verification.ts` produces, so a refusal reads the
+  // same whether the client caught it or the database did.
+  //
+  // `placed_distance_m` is a migration-004 column, and PostgREST rejects the
+  // whole insert for a column it doesn't know. A backend still on 003 stops
+  // accepting pins until the operator runs it — loudly, which is the right
+  // failure for a column that carries evidence.
   if (error) throw error;
 }
 

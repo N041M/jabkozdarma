@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ContextCard, { type CardBar, type CardRight } from '@/components/context-card';
 import { CameraControls, ScaleBadge, StreakPill } from '@/components/map-chrome';
+import { PlacementBar, PlacementCrosshair } from '@/components/placement';
 import Rail, { type RailAction } from '@/components/rail';
 import TreeMap from '@/components/tree-map';
 import { ripenessColors, useTheme } from '@/constants/theme';
@@ -21,9 +22,11 @@ import {
   ripenessLabels,
   treeTitle,
 } from '@/lib/labels';
+import { capturePhoto } from '@/lib/photo';
 import { fetchWalkingRoute, formatWalkTime } from '@/lib/routing';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
+import { VERIFY, isInServiceArea, placementDistance } from '@/lib/verification';
 import type { LatLng } from '@/lib/routing';
 import type { Tree } from '@/lib/types';
 import { PICK_RADIUS_M, STOPS, clampStop, type ZoomStop } from '@/lib/zoom-ladder';
@@ -54,6 +57,7 @@ export default function MapScreen() {
   const stop = useStore((s) => s.zoomStop);
   const setZoomStop = useStore((s) => s.setZoomStop);
   const railSide = useStore((s) => s.railSide);
+  const setPendingPhoto = useStore((s) => s.setPendingPhoto);
   const lastRejection = useStore((s) => s.lastRejection);
   const clearRejection = useStore((s) => s.clearRejection);
   const activeDays = useStore((s) => s.activeDays);
@@ -61,6 +65,12 @@ export default function MapScreen() {
   const showToast = useToast((s) => s.show);
 
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; key: number } | null>(null);
+  /**
+   * True while a pin is being aimed. The crosshair is the centre of the map,
+   * so this changes what the whole screen is for: the card becomes a readout
+   * of what is under it, and the rail's verb becomes "place".
+   */
+  const [placing, setPlacing] = useState(false);
   const [userLoc, setUserLoc] = useState<LatLng | null>(null);
   /**
    * How good the last fix was, in metres. Evidence that travels with a pin
@@ -75,6 +85,10 @@ export default function MapScreen() {
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   // Read by the stop-change effect, which must not re-run on every fix.
   const userLocRef = useRef<LatLng | null>(null);
+  // Read by the same effect, and a ref rather than a dependency: dropping to
+  // body scale re-centres, but *leaving* placement must not, and a dependency
+  // would fire it on the way out and throw away the aim.
+  const placingRef = useRef(false);
 
   /** Follow the player's position so the avatar keeps up as they walk. */
   const startWatching = useCallback(async () => {
@@ -110,6 +124,10 @@ export default function MapScreen() {
     userLocRef.current = userLoc;
   }, [userLoc]);
 
+  useEffect(() => {
+    placingRef.current = placing;
+  }, [placing]);
+
   /**
    * Put the picker on screen the first time we learn where they are. Without
    * this the camera sits wherever it was left and the body-scale stop looks
@@ -127,7 +145,7 @@ export default function MapScreen() {
   // you are the middle of the picture. Higher stops are about regions, so
   // they keep whatever the picker panned to.
   useEffect(() => {
-    if (stop !== 0) return;
+    if (stop !== 0 || placingRef.current) return;
     const here = userLocRef.current;
     if (here) setFlyTo({ ...here, key: Date.now() });
   }, [stop]);
@@ -223,6 +241,53 @@ export default function MapScreen() {
 
   const seasonBars = useMemo(() => sixMonthBars(reports), [reports]);
 
+  /**
+   * What the crosshair is over, while a pin is being aimed.
+   *
+   * Recomputed as the map moves rather than when it stops, which is the whole
+   * point of it: the readout has to describe the spot the finger is dragging
+   * over now, not the one it last let go of. It also does the refusing —
+   * a rule the picker can see coming while they aim is worth more than the
+   * same rule as a red banner after the form.
+   */
+  const aim = useMemo(() => {
+    if (!placing) return null;
+    const pin = mapCentre;
+    const distanceM = placementDistance(pin, userLoc, accuracyM);
+    const duplicates = visibleTrees.filter(
+      (tree) => distanceMeters(pin.lat, pin.lng, tree.lat, tree.lng) < DUPLICATE_RADIUS_M
+    ).length;
+    const outOfArea = !isInServiceArea(pin.lat, pin.lng);
+    const tooFar = distanceM !== null && distanceM > VERIFY.maxPlacementM;
+
+    const title =
+      distanceM === null
+        ? t2('placeNoFix')
+        : distanceM < 3
+          ? t2('placeAtYou')
+          : t2('placeFrom', { n: Math.round(distanceM) });
+
+    // One line, so it says the most urgent true thing: what would refuse the
+    // pin, then what would make it a duplicate, then how well it is aimed.
+    const subtitle = outOfArea
+      ? t2('pin_out_of_area')
+      : tooFar
+        ? t2('placeTooFar', { m: VERIFY.maxPlacementM })
+        : duplicates > 0
+          ? t2('placeDuplicate', { count: duplicates, r: DUPLICATE_RADIUS_M })
+          : !userLoc
+            ? t2('placeNoFixSub')
+            : // A fix exists but is too vague to place its owner anywhere, so
+              // `placementDistance` threw it away and the pin is hand-aimed.
+              distanceM === null
+              ? t2('placeVagueFix', { n: Math.round(accuracyM ?? 0) })
+              : accuracyM === null
+                ? t2('placeDragHint')
+                : t2('placeAccuracy', { n: Math.round(accuracyM) });
+
+    return { pin, distanceM, duplicates, title, subtitle, blocked: outOfArea || tooFar };
+  }, [placing, mapCentre, userLoc, accuracyM, visibleTrees]);
+
   // ---- actions -----------------------------------------------------------
 
   const requireProfile = () => {
@@ -249,15 +314,15 @@ export default function MapScreen() {
    * Ask for a fix once, on demand — the watcher only runs once granted.
    * Returns the fix's radius with it: `setAccuracyM` won't be visible to a
    * caller running in this same tick, so reading the state instead would
-   * record no accuracy for the very first pin, which is the one placed right
-   * after permission is granted.
+   * record no accuracy for the very first fix, which is the one that arrives
+   * right after permission is granted.
    */
   const ensureLocation = async (): Promise<(LatLng & { accuracyM: number | null }) | null> => {
     if (userLoc) return { ...userLoc, accuracyM };
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setNotice(t2('needLocationToAdd'));
+        setNotice(t2('noLocation'));
         return null;
       }
       const pos = await Location.getCurrentPositionAsync({});
@@ -269,7 +334,7 @@ export default function MapScreen() {
       startWatching();
       return { ...here, accuracyM: fixAccuracy };
     } catch {
-      setNotice(t2('needLocationToAdd'));
+      setNotice(t2('noLocation'));
       return null;
     }
   };
@@ -298,22 +363,68 @@ export default function MapScreen() {
     else showToast(t2('toastPick'), 'basket');
   };
 
-  /** Přidat — the pin lands where you are standing, no tap-to-place step. */
-  const addHere = async () => {
+  /**
+   * Přidat — start aiming. The pin used to land on the device's own fix,
+   * which welded three separate things together: where the tree is, where the
+   * picker is, and whether they may contribute at all.
+   *
+   * They come apart here. The crosshair says where the tree is, and the
+   * picker aims it against a map that shows the trunk; the fix becomes
+   * evidence about the person placing it rather than the coordinate itself;
+   * and having no fix stops being a refusal, because somebody standing in a
+   * courtyard their phone can't see the sky from can still see the tree.
+   */
+  const startPlacing = async () => {
     if (!requireProfile()) return;
     dismissBanner();
+    setPlacing(true);
+    setZoomStop(0); // aiming needs the rung where a trunk is a trunk
+    if (userLoc) {
+      setFlyTo({ ...userLoc, key: Date.now() });
+      return;
+    }
+    // No fix yet, so aim from wherever the camera already is — and ask, since
+    // this is the moment the answer is worth something. The prompt is modal:
+    // nothing is being dragged while it is up, so moving the camera onto the
+    // answer can't be stealing an aim already under way.
     const here = await ensureLocation();
-    if (!here) return;
-    const nearbyCount = visibleTrees.filter(
-      (tree) => distanceMeters(here.lat, here.lng, tree.lat, tree.lng) < DUPLICATE_RADIUS_M
-    ).length;
+    if (here) setFlyTo({ lat: here.lat, lng: here.lng, key: Date.now() });
+  };
+
+  const cancelPlacing = () => setPlacing(false);
+
+  /**
+   * Umístit — commit the aim and open the form.
+   *
+   * The camera runs first and straight out of this tap. On web it is a file
+   * input, and browsers only open one during a user gesture, so anything
+   * awaited before it — a location read above all — spends the gesture and
+   * the camera silently never opens. That constraint used to fight the pin,
+   * because the fix had to be re-read *after* the photo to undo the metres
+   * the photographer had stepped back; now the pin is already placed, and
+   * nothing that happens during the photo can move it.
+   *
+   * Everything recorded here is what the readout was showing at the moment of
+   * the tap, closed over before the await. A pin should carry the evidence
+   * its author was shown, not whatever the watcher reported while they were
+   * framing a photograph.
+   */
+  const placePin = async () => {
+    if (!aim || aim.blocked) return;
+    const { pin, distanceM, duplicates } = aim;
+    const fix = accuracyM;
+
+    const photo = await capturePhoto();
+    setPendingPhoto(photo);
+    setPlacing(false);
     router.push({
       pathname: '/add-tree',
       params: {
-        lat: String(here.lat),
-        lng: String(here.lng),
-        nearby: String(nearbyCount),
-        accuracy: here.accuracyM === null ? '' : String(Math.round(here.accuracyM)),
+        lat: String(pin.lat),
+        lng: String(pin.lng),
+        nearby: String(duplicates),
+        accuracy: fix === null ? '' : String(Math.round(fix)),
+        placed: distanceM === null ? '' : String(Math.round(distanceM)),
       },
     });
   };
@@ -366,11 +477,28 @@ export default function MapScreen() {
   // ---- the rail's bottom slot -------------------------------------------
 
   const action: RailAction = useMemo(() => {
+    // Aiming takes the slot over entirely: while the crosshair is up there is
+    // exactly one thing to do with the map, and it is under the thumb.
+    if (aim) {
+      return {
+        key: 'place',
+        icon: 'pin',
+        label: t2('actPlace'),
+        color: aim.blocked ? t.disabled : '#C9402F',
+        onPress: placePin,
+      };
+    }
     switch (stop) {
       case 0:
         return treeAtHand
           ? { key: 'pick', icon: 'basket', label: t2('actPick'), color: '#C9402F', onPress: checkIn }
-          : { key: 'add', icon: 'add', label: t2('actAdd'), color: '#C9402F', onPress: addHere };
+          : {
+              key: 'add',
+              icon: 'add',
+              label: t2('actAdd'),
+              color: '#C9402F',
+              onPress: startPlacing,
+            };
       case 1:
         return {
           key: 'route',
@@ -399,7 +527,7 @@ export default function MapScreen() {
     // The handlers close over fresh state on every render; the key is what
     // the rail actually watches for its label flash.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stop, treeAtHand, t.green, districtName, nearest, bestCluster, userLoc, profile]);
+  }, [stop, treeAtHand, t.green, t.disabled, districtName, nearest, bestCluster, userLoc, profile, aim]);
 
   // ---- the context card --------------------------------------------------
 
@@ -513,8 +641,12 @@ export default function MapScreen() {
         placeQuery={placeQuery}
         onPlaceName={handlePlaceName}
         onCenterChange={setMapCentre}
+        trackCenter={placing}
+        overhead={placing}
         onPitchChange={setLivePitch}
       />
+
+      {aim && <PlacementCrosshair blocked={aim.blocked} />}
 
       <ScaleBadge stop={stop} top={chromeTop} pitch={livePitch} onPress={() => stepStop(1, true)} />
       <StreakPill streak={streak} top={chromeTop} onPress={() => router.push('/dex')} />
@@ -561,15 +693,29 @@ export default function MapScreen() {
 
       <Rail side={railSide} bottom={railBottom} action={action} onHeight={setRailHeight} />
 
-      <ContextCard
-        dotColor={card.dotColor}
-        title={card.title}
-        subtitle={card.subtitle}
-        right={card.right}
-        onPress={card.onPress}
-        left={12}
-        bottom={chrome + CARD_GAP}
-      />
+      {/* Same corner, same geometry, different question: while a pin is being
+          aimed the bottom edge reports what is under the crosshair instead of
+          what the camera is looking at. */}
+      {aim ? (
+        <PlacementBar
+          title={aim.title}
+          subtitle={aim.subtitle}
+          blocked={aim.blocked}
+          onCancel={cancelPlacing}
+          left={12}
+          bottom={chrome + CARD_GAP}
+        />
+      ) : (
+        <ContextCard
+          dotColor={card.dotColor}
+          title={card.title}
+          subtitle={card.subtitle}
+          right={card.right}
+          onPress={card.onPress}
+          left={12}
+          bottom={chrome + CARD_GAP}
+        />
+      )}
     </View>
   );
 }

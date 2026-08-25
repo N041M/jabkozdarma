@@ -41,11 +41,13 @@ To verify the run, go to **Database > Tables** and confirm that all seven tables
 `schema.sql` creates the tables, but the rules that decide who may write a pin and
 whether the map trusts it live in
 [`migration-003-verification.sql`](migration-003-verification.sql). Run that file next,
-in a new query. Every project needs it, fresh or not — without it, new pins go live
-unchecked and the tree detail screen can't confirm anything. For what it enforces, see
+in a new query, then [`migration-004-placement.sql`](migration-004-placement.sql). Every
+project needs both, fresh or not — without 003, new pins go live unchecked and the tree
+detail screen can't confirm anything; without 004, the app can't add a pin at all,
+because it writes a column that doesn't exist yet. For what they enforce, see
 [Verification](#verification).
 
-Unlike `schema.sql`, this one is safe to run again.
+Unlike `schema.sql`, both are safe to run again.
 
 **Caution:** The script assumes a fresh project, and you can't run it twice.
 `create type` and `create table` both fail if the object already exists. If the script
@@ -195,6 +197,12 @@ Run each of these once in the SQL Editor. All of them are safe to run again:
   limits and the confirmation model described below. Every project needs this one, not
   only an existing database. Until you run it, the app still works, but new pins go live
   unchecked and the tree detail screen can't confirm anything.
+- [`migration-004-placement.sql`](migration-004-placement.sql) adds `placed_distance_m`,
+  the evidence a pin carries about how far its author stood from it, and the 150 m leash
+  that goes with it. It also stops `accuracy_m` refusing pins, because the app now aims
+  a pin against the map instead of dropping it on the device's fix. Every project needs
+  this one too, and until you run it, adding a tree fails: the app writes a column the
+  database doesn't have.
 
 ## Verification
 
@@ -259,4 +267,5 @@ export and account deletion. Two things need your confirmation:
 | The map is empty after you connect the backend | This is expected on a fresh database. Sign in and add a tree, or run `seed.sql`. |
 | The schema run fails midway | The project wasn't fresh, or you ran the script twice. Don't run it again. Write a targeted cleanup script. |
 | Migration 003 says `type "extensions.geography" does not exist` | Your project keeps PostGIS in a different schema. Check with `select nspname from pg_extension e join pg_namespace n on n.oid = e.extnamespace where extname = 'postgis'`, and add that schema to the `set search_path` line of any function that fails. |
+| Adding a tree fails with `Could not find the 'placed_distance_m' column` | You haven't run [`migration-004-placement.sql`](migration-004-placement.sql) yet. Run it, then reload the app. |
 | Migration 003 says `cannot change return type of existing function` | An older `trees_in_bbox` is still there and Postgres won't replace it with one that returns more columns. The migration drops it first, so this means you're running an outdated copy of the file. |

@@ -56,8 +56,10 @@ function logSyncError(op: string) {
  */
 const PIN_REJECTIONS: PinRejection[] = [
   'bad_coords',
+  // Only a backend still on migration 003 raises this one; see `PinRejection`.
   'bad_fix',
   'out_of_area',
+  'placed_too_far',
   'too_close',
   'daily_limit',
 ];
@@ -148,8 +150,10 @@ function applyProgress(
 export interface NewTreeInput {
   lat: number;
   lng: number;
-  /** Radius of the fix the pin was placed from, in metres. */
+  /** Radius of the fix its author had when they placed it, in metres. */
   accuracyM: number | null;
+  /** How far the author stood from the pin they aimed; null with no usable fix. */
+  placedDistanceM: number | null;
   species: Tree['species'];
   variety: string | null;
   description: string | null;
@@ -202,6 +206,14 @@ interface AppState {
    */
   lastRejection: PinRejection | null;
   activeRoute: ActiveRoute | null; // transient, not persisted
+  /**
+   * A photo taken on the way into the add form, waiting to be picked up.
+   * It travels through here rather than through route params because a
+   * downscaled JPEG is a few hundred kilobytes of data URI, and on web a
+   * route param is the URL. Transient, and overwritten on every add, so the
+   * form can read it without having to clear it during its own render.
+   */
+  pendingPhoto: string | null;
   hydrated: boolean; // backend snapshot loaded
   mapMode: MapMode;
 
@@ -248,6 +260,7 @@ interface AppState {
   toggleFavorite: (treeId: string) => void;
   setRoute: (route: ActiveRoute) => void;
   clearRoute: () => void;
+  setPendingPhoto: (uri: string | null) => void;
   setMapMode: (mode: MapMode) => void;
   setZoomStop: (stop: ZoomStop) => void;
   setRailSide: (side: RailSide) => void;
@@ -270,6 +283,7 @@ export const useStore = create<AppState>()(
       favorites: [],
       lastRejection: null,
       activeRoute: null,
+      pendingPhoto: null,
       hydrated: !isBackendConfigured,
       mapMode: 'go',
 
@@ -366,6 +380,7 @@ export const useStore = create<AppState>()(
           lat: input.lat,
           lng: input.lng,
           accuracyM: input.accuracyM,
+          placedDistanceM: input.placedDistanceM,
           profileId: profile?.id ?? null,
           ownTrees: get().trees,
         });
@@ -612,6 +627,7 @@ export const useStore = create<AppState>()(
 
       setRoute: (route) => set({ activeRoute: route }),
       clearRoute: () => set({ activeRoute: null }),
+      setPendingPhoto: (uri) => set({ pendingPhoto: uri }),
       setMapMode: (mode) => set({ mapMode: mode }),
       setZoomStop: (stop) => set({ zoomStop: stop }),
       setRailSide: (side) => set({ railSide: side }),
@@ -698,7 +714,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'jabkozdarma-v1',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         profile: s.profile,
@@ -734,6 +750,10 @@ export const useStore = create<AppState>()(
             .map((t) => ({
               ...t,
               accuracyM: t.accuracyM ?? null,
+              // Pins placed before the crosshair existed were dropped on the
+              // author's own fix, so the honest distance is the one nobody
+              // measured. Null says exactly that.
+              placedDistanceM: t.placedDistanceM ?? null,
               confirmations: t.confirmations ?? 0,
               // Pins saved before verification existed were saved when
               // everything was trusted. Grandfather them in rather than

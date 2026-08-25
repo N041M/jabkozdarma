@@ -32,11 +32,23 @@ bundle time, so a running server doesn't pick them up.
   table, not scattered through components.
 - **`src/lib/chrome.ts`** owns the bottom-edge measurements that every floating control
   positions against. Don't hardcode bottom offsets in screens.
+- **`src/lib/photo.ts`** owns both ways a photo arrives, camera and library, and
+  downscales on web before either returns. Call `capturePhoto()` straight out of a tap:
+  on web the camera is a file input with `capture` set, and browsers only open one
+  during a user gesture, so anything awaited first — a location prompt above all —
+  spends the gesture and the camera silently never opens.
 - **`src/lib/verification.ts`** holds the rules that decide whether a pin may be written
   and whether the map trusts it. It's mirrored by
-  `supabase/migration-003-verification.sql`, which is the copy that counts — the client's
-  is there so local mode behaves like the backend. Change a threshold in one and change
-  it in the other.
+  `supabase/migration-003-verification.sql` and `migration-004-placement.sql`, which are
+  the copies that count — the client's is there so local mode behaves like the backend.
+  Change a threshold in one and change it in the other.
+- **A pin is aimed, not dropped.** The map screen's placement mode puts a crosshair at
+  the centre of the camera and the picker drags the map under it, so a pin's coordinate
+  is the tree. The device's own fix is evidence *about the picker*: `accuracyM` is how
+  good it was, `placedDistanceM` is how far they stood from what they aimed at, and
+  neither is the coordinate. That's why a vague fix no longer refuses a pin and no fix
+  at all doesn't either — see the comment on `VERIFY.maxPlacementM` for why the leash
+  can't be enforced the way `confirm_tree()`'s radius can.
 
 ## Conventions
 

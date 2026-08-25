@@ -12,7 +12,8 @@ import type { Tree, TreeConfirmation, TreeFlag } from './types';
  * Two mechanisms answer it, and neither works alone:
  *
  *  - **Limits** cap what one account can write at all — a handful of pins a
- *    day, none of them on top of each other, none outside the service area.
+ *    day, none of them on top of each other, none outside the service area,
+ *    and none dropped further away than its author could have walked to see.
  *    This is what stops a script, and it is enforced in Postgres
  *    (`supabase/migration-003-verification.sql`), because anything the
  *    client checks is advice the client can skip.
@@ -44,10 +45,30 @@ export const VERIFY = {
    */
   confirmRadiusM: 60,
   /**
-   * A fix vaguer than this can neither place nor confirm a pin. Roughly
-   * where a phone stops using GNSS and starts guessing from cell towers.
+   * A fix vaguer than this says nothing about where its owner was standing.
+   * Roughly where a phone stops using GNSS and starts guessing from cell
+   * towers.
+   *
+   * It refuses a *confirmation* outright, because there the fix is the whole
+   * evidence. It does not refuse a *pin*: a pin is aimed by hand against the
+   * map, so a vague fix costs it its presence evidence and nothing else.
    */
   maxAccuracyM: 100,
+  /**
+   * How far from your own fix you may drop a pin.
+   *
+   * The pin is aimed by hand, so this is not the precision of the placement —
+   * it is the leash that keeps a pin attached to a walk. Wide enough to reach
+   * a tree across the park you are standing in, short enough that pinning a
+   * district from the sofa is refused at the door.
+   *
+   * Unlike `confirmRadiusM`, no amount of server-side arithmetic makes this
+   * one stronger: `confirm_tree()` measures a claimed position against a
+   * location the caller does not control, whereas somebody placing a pin
+   * chooses *both* points. So this catches a mis-aimed pin from an honest
+   * client, and corroboration is what answers a dishonest one.
+   */
+  maxPlacementM: 150,
   /** Pins one account may add in a day. A good day's walk yields a few. */
   dailyPinLimit: 12,
   /** Confirmations one account may give in a day. */
@@ -69,8 +90,16 @@ export const VERIFY = {
 export type PinRejection =
   | 'no_profile'
   | 'bad_coords'
+  /**
+   * No longer raised here: a hand-aimed pin does not get worse because the
+   * phone's own fix is vague. It stays in the union because the check lived
+   * in `check_new_tree()` until migration 004, and a backend the operator
+   * hasn't migrated yet still raises it — better a sentence that explains it
+   * than a silent failure.
+   */
   | 'bad_fix'
   | 'out_of_area'
+  | 'placed_too_far'
   | 'too_close'
   | 'daily_limit';
 
@@ -108,6 +137,30 @@ function sameDayCount(timestamps: string[], now: Date): number {
 }
 
 /**
+ * The presence evidence a placement carries: how far the picker stood from
+ * the pin they aimed.
+ *
+ * Null when there is nothing honest to record — no fix at all, or a fix too
+ * vague to place its owner anywhere in particular. A pin with a null distance
+ * is still a pin; it simply arrives with no claim that anybody was there, and
+ * has to earn the map's trust from the confirmations alone, like every other.
+ *
+ * The distance and not the position, because the distance is the only part of
+ * where the author was standing that the map has any use for. Keeping the
+ * point itself would mean storing a picker's movements to answer a question
+ * that a single number already answers.
+ */
+export function placementDistance(
+  pin: { lat: number; lng: number },
+  here: { lat: number; lng: number } | null,
+  accuracyM: number | null
+): number | null {
+  if (!here) return null;
+  if (accuracyM !== null && accuracyM > VERIFY.maxAccuracyM) return null;
+  return distanceMeters(here.lat, here.lng, pin.lat, pin.lng);
+}
+
+/**
  * Whether a new pin may be written, and if not, why. Mirrors the checks the
  * `trees` insert trigger makes; both must agree or local mode lies about
  * what the backend will accept.
@@ -116,6 +169,11 @@ export function checkNewPin(input: {
   lat: number;
   lng: number;
   accuracyM: number | null;
+  /**
+   * How far the picker stood from the pin they aimed, or null when there is
+   * nothing worth recording. Null is not a refusal — see `placementDistance`.
+   */
+  placedDistanceM: number | null;
   profileId: string | null;
   /** Every pin this profile has already placed. */
   ownTrees: Tree[];
@@ -124,8 +182,10 @@ export function checkNewPin(input: {
   const now = input.now ?? new Date();
   if (!input.profileId) return 'no_profile';
   if (!Number.isFinite(input.lat) || !Number.isFinite(input.lng)) return 'bad_coords';
-  if (input.accuracyM !== null && input.accuracyM > VERIFY.maxAccuracyM) return 'bad_fix';
   if (!isInServiceArea(input.lat, input.lng)) return 'out_of_area';
+  if (input.placedDistanceM !== null && input.placedDistanceM > VERIFY.maxPlacementM) {
+    return 'placed_too_far';
+  }
 
   const mine = input.ownTrees.filter((t) => t.createdBy === input.profileId);
   if (sameDayCount(mine.map((t) => t.createdAt), now) >= VERIFY.dailyPinLimit) {

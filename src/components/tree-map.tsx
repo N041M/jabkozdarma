@@ -18,6 +18,8 @@ export default function TreeMap({
   stop,
   onPressCluster,
   onCenterChange,
+  trackCenter = false,
+  overhead = false,
 }: TreeMapProps) {
   const mapRef = useRef<MapView>(null);
   const { width } = useWindowDimensions();
@@ -27,12 +29,14 @@ export default function TreeMap({
   useEffect(() => {
     mapRef.current?.animateCamera(
       {
-        pitch: mode === 'flat' ? 0 : STOPS[stop].pitch,
+        // Aiming a pin happens from straight above, whatever the rung asks
+        // for — see `overhead` in tree-map.types.ts.
+        pitch: overhead || mode === 'flat' ? 0 : STOPS[stop].pitch,
         zoom: zoomForStop(stop, width, PRAGUE.lat),
       },
       { duration: 500 }
     );
-  }, [mode, stop, width]);
+  }, [mode, stop, width, overhead]);
 
   const clusters = useMemo(() => {
     const cellM = STOPS[stop].clusterM;
@@ -72,6 +76,13 @@ export default function TreeMap({
         latitudeDelta: 0.12,
         longitudeDelta: 0.12,
       }}
+      // While a pin is being aimed the centre is the answer, so it is reported
+      // as the map moves; otherwise only once it settles.
+      onRegionChange={
+        trackCenter
+          ? (region) => onCenterChange?.({ lat: region.latitude, lng: region.longitude })
+          : undefined
+      }
       onRegionChangeComplete={(region) =>
         onCenterChange?.({ lat: region.latitude, lng: region.longitude })
       }>

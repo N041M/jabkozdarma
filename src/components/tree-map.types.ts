@@ -38,6 +38,19 @@ export interface TreeMapProps {
    */
   onCenterChange?: (center: LatLng) => void;
   /**
+   * Report the centre continuously rather than only once the camera settles.
+   * Aiming a pin needs it — the crosshair is the centre, and a readout that
+   * only caught up at the end of a drag would be describing the last spot.
+   * Off otherwise: it is a state update, and a re-render, per frame.
+   */
+  trackCenter?: boolean;
+  /**
+   * Look straight down, whatever tilt the rung asks for. Placing a pin is the
+   * one job the tilt works against: at 58° the middle of the screen is metres
+   * beyond where it looks, and the sprite you are aiming past leans over it.
+   */
+  overhead?: boolean;
+  /**
    * The camera's real tilt. The ladder sets a tilt per rung, but the map can
    * still be tilted by hand, so the scale badge reads this rather than the
    * rung's nominal value.

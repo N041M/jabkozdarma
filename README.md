@@ -61,7 +61,9 @@ lišty**. For the measurements this depends on, see
 - **Location and privacy**: the browser's Geolocation API supplies the position, with
   the user's permission, and the app reads it on-device. The static host never sees it.
   Coordinates leave the device only as the two endpoints that the app sends to the OSRM
-  router when it requests a route.
+  router when it requests a route. A pin you place stores how far you stood from it, not
+  where you stood: one number answers what the map needs, and keeping the point would be
+  keeping your movements.
 
 ## What's built (Phase 1 MVP, local mode)
 
@@ -69,9 +71,19 @@ lišty**. For the measurements this depends on, see
   camera is looking at, and the scale badge cycles the stops.
 - **Sklizeň**: the map's ranked twin. It lists the same trees ordered by walking
   distance, filtered by "ripe now" and "under 2 km".
-- **Add a tree** from the rail. The pin lands where you're standing, and then you fill
-  in variety, notes, access, season, and photo. The form warns you if a pin already
-  exists within 25 m.
+- **Add a tree** from the rail, by aiming rather than by standing. Tapping **Přidat**
+  drops the camera to the 50 m rung, flattens it, and puts a crosshair in the middle of
+  the map; you drag the map until the crosshair sits on the trunk. A readout on the
+  bottom edge says how far the pin is from you, how good your fix is, and whether a pin
+  already exists within 25 m of that spot. **Umístit** then opens the rear camera and
+  the form, with the photo already attached. Every other field has a working default, so
+  one more tap puts the tree on the map; variety, notes, access, and season are there
+  when you want them.
+
+  Your own position is evidence rather than the coordinate: the pin records how far you
+  stood from it, and a pin has to land within 150 m of you. Having no location at all
+  isn't a refusal — you aim by hand, the pin says so, and it earns the map's trust from
+  confirmations like every other pin.
 - **Verification**, so nobody can pin trees where there aren't any. A new pin starts
   unverified: the map draws it faded and Sklizeň leaves it out of the walking list. Two
   other pickers standing within 60 m of it make it real, and you can't confirm your own.
@@ -121,7 +133,7 @@ src/
     tree/[id]     tree detail
     add-tree      add and edit modal
   components/     tree-map for native and web, rail, context card, map chrome,
-                  toast, and shared UI
+                  the placement crosshair, toast, and shared UI
   lib/            types, the zustand and AsyncStorage store, zoom-ladder, chrome
                   insets, clustering, Jablkodex progress, verification rules,
                   seed data, and the Supabase client
@@ -130,4 +142,6 @@ supabase/
   schema.sql      tables, row-level security, and the viewport RPC
   migration-003   the verification rules: write limits, confirmations, and
                   the triggers that own tree status. Every project runs it.
+  migration-004   placement: the distance a pin carries from its author, and
+                  the leash that keeps it near them. Every project runs it.
 ```
